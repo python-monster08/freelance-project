@@ -24,7 +24,7 @@ class UserSignupSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         user = User(
             **validated_data,
-            is_active=False  # User is not active until approved by super_admin
+            is_active=True  # User is not active until approved by super_admin
         )
         user.set_password(validated_data['password'])
         user.save()

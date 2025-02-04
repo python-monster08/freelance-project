@@ -27,6 +27,32 @@ class UserSignupView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+# class UserLoginView(generics.GenericAPIView):
+#     serializer_class = UserLoginSerializer
+#     permission_classes = [AllowAny]
+
+#     def post(self, request, *args, **kwargs):
+#         serializer = self.get_serializer(data=request.data)
+#         serializer.is_valid(raise_exception=True)
+#         username_or_email = serializer.validated_data['username_or_email']
+#         password = serializer.validated_data['password']
+
+#         user = authenticate(username=username_or_email, password=password) or \
+#                authenticate(email=username_or_email, password=password)
+
+#         if not user.is_active:
+#             return Response({'detail': 'Account is not activated yet.'}, status=status.HTTP_403_FORBIDDEN)
+        
+#         if user is None:
+#             return Response({'detail': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+
+
+#         refresh = RefreshToken.for_user(user)
+#         return Response({
+#             'refresh': str(refresh),
+#             'access': str(refresh.access_token),
+#         })
+
 class UserLoginView(generics.GenericAPIView):
     serializer_class = UserLoginSerializer
     permission_classes = [AllowAny]
@@ -37,15 +63,13 @@ class UserLoginView(generics.GenericAPIView):
         username_or_email = serializer.validated_data['username_or_email']
         password = serializer.validated_data['password']
 
-        user = authenticate(username=username_or_email, password=password) or \
-               authenticate(email=username_or_email, password=password)
+        user = authenticate(request, username=username_or_email, password=password)
 
-        if not user.is_active:
-            return Response({'detail': 'Account is not activated yet.'}, status=status.HTTP_403_FORBIDDEN)
-        
         if user is None:
             return Response({'detail': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
 
+        if not user.is_active:
+            return Response({'detail': 'Account is not activated yet.'}, status=status.HTTP_403_FORBIDDEN)
 
         refresh = RefreshToken.for_user(user)
         return Response({
