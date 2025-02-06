@@ -7,7 +7,7 @@ class UserMasterAdmin(admin.ModelAdmin):
     list_filter = ["role", "is_staff", "is_superuser"]
 
 class UserProfileAdmin(admin.ModelAdmin):
-    list_display = ["user", "address", "date_of_birth", "website"]
+    list_display = ["user", "brand_name", "number_of_outlets", "daily_approximate_footfalls", "gstin", "website"]
     search_fields = ["user__username", "user__email"]
 
 admin.site.register(UserMaster, UserMasterAdmin)

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from api.v1.models import UserMaster, UserProfile
+from api.v1.models import *
 from django.contrib.auth import get_user_model
 from django.utils.translation import gettext_lazy as _
 from django.core.exceptions import ValidationError
@@ -31,11 +31,6 @@ class UserSignupSerializer(serializers.ModelSerializer):
         return user
 
 
-class UserProfileSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = UserProfile
-        fields = ['address', 'date_of_birth', 'profile_picture', 'bio', 'website']
-
 
 class UserLoginSerializer(serializers.Serializer):
     username_or_email = serializers.CharField()
@@ -48,3 +43,45 @@ class UserLoginSerializer(serializers.Serializer):
         if not attrs.get('password'):
             raise ValidationError(_('This field is required.'))
         return attrs
+
+
+
+
+
+class OutletSerializer(serializers.ModelSerializer):
+    """Serializer for Outlet model"""
+    
+    class Meta:
+        model = Outlet
+        fields = ["id", "name", "area", "city", "zip_code", "state", "daily_footfalls"]
+        read_only_fields = ["id"]  # Auto-generated field
+
+class UserProfileSerializer(serializers.ModelSerializer):
+    """Serializer for UserProfile model, allowing nested Outlet creation"""
+    
+    outlets = OutletSerializer(many=True, required=False)  # Supports multiple outlets
+
+    class Meta:
+        model = UserProfile
+        fields = "__all__"  # Include all fields in the UserProfile model
+
+    def update(self, instance, validated_data):
+        """Custom update method to handle nested outlets"""
+        
+        # Extract nested outlets data
+        outlets_data = validated_data.pop("outlets", [])
+
+        # Update the UserProfile fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        # Handle outlets (clear old ones and add new ones)
+        instance.outlets.all().delete()
+        for outlet_data in outlets_data:
+            Outlet.objects.create(user_profile=instance, **outlet_data)
+
+        # Update number_of_outlets with outlet names
+        instance.update_outlet_count()
+
+        return instance

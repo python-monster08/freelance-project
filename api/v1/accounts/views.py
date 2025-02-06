@@ -1,136 +1,313 @@
 from rest_framework import generics, status
-from rest_framework.response import Response
-from rest_framework.permissions import AllowAny
-from rest_framework_simplejwt.tokens import RefreshToken
-from django.contrib.auth import authenticate
-from api.v1.models import UserProfile, UserMaster
-from .serializers import UserSignupSerializer, UserProfileSerializer, UserLoginSerializer
-from rest_framework.response import Response
-from social_core.exceptions import AuthCanceled, AuthForbidden
 from rest_framework.views import APIView
-from social_core.backends.google import GoogleOAuth2
-from django.contrib.auth import get_user_model
+from rest_framework.response import Response
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
+from django.contrib.auth import authenticate, get_user_model
+from api.v1.models import *
+from .serializers import *
 import requests
 
+UserMaster = get_user_model()
+
 class UserSignupView(APIView):
+    permission_classes = [AllowAny]
+
     def post(self, request):
-        serializer = UserSignupSerializer(data=request.data)
-        if serializer.is_valid():
-            user = serializer.save()  # This saves the user instance
+        try:
+            serializer = UserSignupSerializer(data=request.data)
+            if serializer.is_valid():
+                user = serializer.save()
 
-            # Check if the user profile already exists
-            UserProfile.objects.get_or_create(user=user)
+                # Create UserProfile if not exists
+                UserProfile.objects.get_or_create(user=user)
 
-            return Response({"status": True,'message': 'User created successfully!', "data":serializer.data}, status=status.HTTP_201_CREATED)
-        
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                return Response({
+                    "status": True,
+                    "message": "User created successfully!",
+                    "data": serializer.data
+                }, status=status.HTTP_201_CREATED)
+            
+            return Response({
+                "status": False,
+                "message": serializer.errors
+            }, status=status.HTTP_400_BAD_REQUEST)
 
+        except Exception as e:
+            return Response({
+                "status": False,
+                "message": str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-# class UserLoginView(generics.GenericAPIView):
-#     serializer_class = UserLoginSerializer
-#     permission_classes = [AllowAny]
-
-#     def post(self, request, *args, **kwargs):
-#         serializer = self.get_serializer(data=request.data)
-#         serializer.is_valid(raise_exception=True)
-#         username_or_email = serializer.validated_data['username_or_email']
-#         password = serializer.validated_data['password']
-
-#         user = authenticate(username=username_or_email, password=password) or \
-#                authenticate(email=username_or_email, password=password)
-
-#         if not user.is_active:
-#             return Response({'detail': 'Account is not activated yet.'}, status=status.HTTP_403_FORBIDDEN)
-        
-#         if user is None:
-#             return Response({'detail': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
-
-
-#         refresh = RefreshToken.for_user(user)
-#         return Response({
-#             'refresh': str(refresh),
-#             'access': str(refresh.access_token),
-#         })
 
 class UserLoginView(generics.GenericAPIView):
     serializer_class = UserLoginSerializer
     permission_classes = [AllowAny]
 
     def post(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        username_or_email = serializer.validated_data['username_or_email']
-        password = serializer.validated_data['password']
+        try:
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
 
-        user = authenticate(request, username=username_or_email, password=password)
+            username_or_email = serializer.validated_data['username_or_email']
+            password = serializer.validated_data['password']
 
-        if user is None:
-            return Response({'detail': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+            user = authenticate(request, username=username_or_email, password=password)
 
-        if not user.is_active:
-            return Response({'detail': 'Account is not activated yet.'}, status=status.HTTP_403_FORBIDDEN)
+            if user is None:
+                return Response({
+                    "status": False,
+                    "message": "Invalid credentials"
+                }, status=status.HTTP_401_UNAUTHORIZED)
 
-        refresh = RefreshToken.for_user(user)
-        return Response({
-            'refresh': str(refresh),
-            'access': str(refresh.access_token),
-        })
+            if not user.is_active:
+                return Response({
+                    "status": False,
+                    "message": "Account is not activated yet."
+                }, status=status.HTTP_403_FORBIDDEN)
 
+            refresh = RefreshToken.for_user(user)
+            return Response({
+                "status": True,
+                "message": "Login successful",
+                "refresh": str(refresh),
+                "access": str(refresh.access_token)
+            })
 
-class UserProfileUpdateView(generics.UpdateAPIView):
-    serializer_class = UserProfileSerializer
-    permission_classes = [AllowAny]
+        except Exception as e:
+            return Response({
+                "status": False,
+                "message": str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    def get_object(self):
-        return self.request.user.profile
-
-    def update(self, request, *args, **kwargs):
-        profile = self.get_object()
-        serializer = self.get_serializer(profile, data=request.data, partial=True)
-        serializer.is_valid(raise_exception=True)
-        self.perform_update(serializer)
-        return Response(serializer.data)
-
-
-
-
-
-UserMaster = get_user_model()
 
 class SocialLoginView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        provider = request.data.get('provider')
-        token = request.data.get('token')
+        try:
+            provider = request.data.get('provider')
+            token = request.data.get('token')
 
-        if provider == 'google':
-            return self.google_login(token)
-        return Response({'error': 'Invalid provider'}, status=400)
+            if provider == 'google':
+                return self.google_login(token)
+
+            return Response({
+                "status": False,
+                "message": "Invalid provider"
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            return Response({
+                "status": False,
+                "message": str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def google_login(self, token):
-        # Validate the token with Google
-        response = requests.get(f'https://www.googleapis.com/oauth2/v3/userinfo?access_token={token}')
-        if response.status_code != 200:
-            return Response({'error': 'Invalid token'}, status=400)
+        try:
+            response = requests.get(f'https://www.googleapis.com/oauth2/v3/userinfo?access_token={token}')
+            if response.status_code != 200:
+                return Response({
+                    "status": False,
+                    "message": "Invalid token"
+                }, status=status.HTTP_400_BAD_REQUEST)
 
-        user_info = response.json()
-        email = user_info.get('email')
-        username = user_info.get('name')
+            user_info = response.json()
+            email = user_info.get('email')
+            username = user_info.get('name')
 
-        # Check if user exists
-        user, created = UserMaster.objects.get_or_create(
-            email=email,
-            defaults={
-                'username': username,
-                'is_active': True  # Set as active if created or approved by super admin
-            }
-        )
+            user, created = UserMaster.objects.get_or_create(
+                email=email,
+                defaults={'username': username, 'is_active': True}
+            )
 
-        # Create JWT tokens for the user
-        refresh = RefreshToken.for_user(user)
-        return Response({
-            'refresh': str(refresh),
-            'access': str(refresh.access_token),
-        })
+            refresh = RefreshToken.for_user(user)
+            return Response({
+                "status": True,
+                "message": "Social login successful",
+                "refresh": str(refresh),
+                "access": str(refresh.access_token)
+            })
+
+        except Exception as e:
+            return Response({
+                "status": False,
+                "message": str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class OutletListCreateView(generics.ListCreateAPIView):
+    serializer_class = OutletSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        """Return only the logged-in user's outlets."""
+        return Outlet.objects.filter(user_profile=self.request.user.profile)
+
+    def create(self, request, *args, **kwargs):
+        """Custom create method to return a structured response."""
+        try:
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            outlet = serializer.save(user_profile=self.request.user.profile)  # Assign user profile
+
+            # Update outlet count
+            self.request.user.profile.update_outlet_count()
+
+            return Response({
+                "status": True,
+                "message": "Outlet created successfully!",
+                "data": OutletSerializer(outlet).data
+            }, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            return Response({
+                "status": False,
+                "message": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+class OutletDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = OutletSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        """Ensure users can only update/delete their own outlets"""
+        return Outlet.objects.filter(user_profile=self.request.user.profile)
+
+    def update(self, request, *args, **kwargs):
+        """Custom update method for structured responses."""
+        try:
+            partial = kwargs.pop('partial', False)
+            instance = self.get_object()
+            serializer = self.get_serializer(instance, data=request.data, partial=partial)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+
+            return Response({
+                "status": True,
+                "message": "Outlet updated successfully!",
+                "data": serializer.data
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({
+                "status": False,
+                "message": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+    def destroy(self, request, *args, **kwargs):
+        """Custom delete method for structured responses."""
+        try:
+            instance = self.get_object()
+            instance.delete()
+
+            # Update outlet count after deletion
+            instance.user_profile.update_outlet_count()
+
+            return Response({
+                "status": True,
+                "message": "Outlet deleted successfully!"
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({
+                "status": False,
+                "message": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+class UserProfileView(generics.RetrieveUpdateAPIView):
+    serializer_class = UserProfileSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        try:
+            return self.request.user.profile
+        except Exception as e:
+            return Response({
+                "status": False,
+                "message": str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def retrieve(self, request, *args, **kwargs):
+        """Retrieve user profile with additional details."""
+        try:
+            user = request.user
+            profile = user.profile
+            serializer = self.get_serializer(profile)
+
+            return Response({
+                "status": True,
+                "message": "User profile retrieved successfully",
+                "data": {
+                    "username": user.username,
+                    "email": user.email,
+                    "first_name": user.first_name,
+                    "last_name": user.last_name,
+                    "profile": serializer.data
+                }
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({
+                "status": False,
+                "message": str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def update(self, request, *args, **kwargs):
+        """Update user profile including password change."""
+        try:
+            user = request.user
+            data = request.data
+
+            # Update User fields
+            user.username = data.get("username", user.username)
+            user.email = data.get("email", user.email)
+            user.first_name = data.get("first_name", user.first_name)
+            user.last_name = data.get("last_name", user.last_name)
+
+            # Password update logic
+            if "old_password" in data and "new_password" in data:
+                old_password = data["old_password"]
+                new_password = data["new_password"]
+
+                if not check_password(old_password, user.password):
+                    return Response({
+                        "status": False,
+                        "message": "Old password is incorrect."
+                    }, status=status.HTTP_400_BAD_REQUEST)
+
+                user.set_password(new_password)
+
+            user.save()
+
+            # Update Profile fields
+            profile = user.profile
+            serializer = self.get_serializer(profile, data=request.data, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+                return Response({
+                    "status": True,
+                    "message": "User profile updated successfully",
+                    "data": {
+                        "username": user.username,
+                        "email": user.email,
+                        "first_name": user.first_name,
+                        "last_name": user.last_name,
+                        "profile": serializer.data
+                    }
+                }, status=status.HTTP_200_OK)
+
+            return Response({
+                "status": False,
+                "message": serializer.errors
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            return Response({
+                "status": False,
+                "message": str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+
