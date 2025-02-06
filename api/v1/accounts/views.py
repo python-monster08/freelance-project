@@ -7,6 +7,7 @@ from django.contrib.auth import authenticate, get_user_model
 from api.v1.models import *
 from .serializers import *
 import requests
+from django.contrib.auth.hashers import check_password
 
 UserMaster = get_user_model()
 
