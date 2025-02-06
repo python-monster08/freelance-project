@@ -14,17 +14,16 @@ class UserSignupSerializer(serializers.ModelSerializer):
         fields = ['username', 'email', 'phone_number', 'password']
 
     def validate(self, attrs):
-        # Custom validation
-        if User.objects.filter(email=attrs['email']).exists():
-            raise serializers.ValidationError({"email": _("Email already exists.")})
-        if User.objects.filter(phone_number=attrs['phone_number']).exists():
-            raise serializers.ValidationError({"phone_number": _("Phone number already exists.")})
+        if User.objects.filter(username=attrs['username']).exists() or \
+           User.objects.filter(email=attrs['email']).exists() or \
+           User.objects.filter(phone_number=attrs['phone_number']).exists():
+            raise serializers.ValidationError("User already exists.")  # Single message
         return attrs
 
     def create(self, validated_data):
         user = User(
             **validated_data,
-            is_active=True  # User is not active until approved by super_admin
+            is_active=True
         )
         user.set_password(validated_data['password'])
         user.save()

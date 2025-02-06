@@ -8,6 +8,8 @@ from api.v1.models import *
 from .serializers import *
 import requests
 from django.contrib.auth.hashers import check_password
+from datetime import datetime, timedelta
+from django.conf import settings
 
 UserMaster = get_user_model()
 
@@ -28,10 +30,10 @@ class UserSignupView(APIView):
                     "message": "User created successfully!",
                     "data": serializer.data
                 }, status=status.HTTP_201_CREATED)
-            
+
             return Response({
                 "status": False,
-                "message": serializer.errors
+                "message": "User already exists"
             }, status=status.HTTP_400_BAD_REQUEST)
 
         except Exception as e:
@@ -67,12 +69,24 @@ class UserLoginView(generics.GenericAPIView):
                     "message": "Account is not activated yet."
                 }, status=status.HTTP_403_FORBIDDEN)
 
+            # Generate tokens
             refresh = RefreshToken.for_user(user)
+            access_token = refresh.access_token
+
+            # Get token expiry times
+            access_token_lifetime = settings.SIMPLE_JWT['ACCESS_TOKEN_LIFETIME']
+            refresh_token_lifetime = settings.SIMPLE_JWT['REFRESH_TOKEN_LIFETIME']
+
+            access_token_expiry = datetime.utcnow() + access_token_lifetime
+            refresh_token_expiry = datetime.utcnow() + refresh_token_lifetime
+
             return Response({
                 "status": True,
                 "message": "Login successful",
                 "refresh": str(refresh),
-                "access": str(refresh.access_token)
+                "refresh_expires_at": refresh_token_expiry.strftime("%Y-%m-%d %H:%M:%S UTC"),
+                "access": str(access_token),
+                "access_expires_at": access_token_expiry.strftime("%Y-%m-%d %H:%M:%S UTC")
             })
 
         except Exception as e:
