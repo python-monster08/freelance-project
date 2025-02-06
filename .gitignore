@@ -57,3 +57,7 @@ render.yaml
 *.dockerignore
 docker-compose.yml
 Dockerfile
+
+.env
+env
+.env
