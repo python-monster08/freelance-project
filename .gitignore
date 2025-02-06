@@ -1,3 +1,59 @@
-.env
-__pycache__
+# Python bytecode and compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
 env/
+*.venv
+
+# Django-related files
+db.sqlite3
+*.sqlite3
+/media/
+staticfiles/
+*.log
+
+# Environment variables
+.env
+*.env
+
+# VSCode settings (if using VSCode)
+.vscode/
+
+# PyCharm settings (if using PyCharm)
+.idea/
+
+# MacOS system files
+.DS_Store
+
+# Ignore migrations compiled files (optional)
+**/migrations/*.pyc
+**/migrations/__pycache__/
+
+# Ignore pytest cache
+.pytest_cache/
+
+# Ignore coverage reports
+htmlcov/
+.coverage
+.coverage.*
+
+# Ignore Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Ignore compiled translations
+*.mo
+
+# Ignore celery task queues
+celerybeat-schedule
+celerybeat.pid
+
+# Ignore Render deployment settings (if applicable)
+render.yaml
+
+# Ignore Docker files (if using Docker)
+*.dockerignore
+docker-compose.yml
+Dockerfile
