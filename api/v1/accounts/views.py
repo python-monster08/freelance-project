@@ -142,14 +142,13 @@ class SocialLoginView(APIView):
                 "message": "Social login successful",
                 "refresh": str(refresh),
                 "access": str(refresh.access_token)
-            })
+            }, status=status.HTTP_200_OK)
 
         except Exception as e:
             return Response({
                 "status": False,
                 "message": str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
 
 class OutletListCreateView(generics.ListCreateAPIView):
     serializer_class = OutletSerializer
@@ -158,6 +157,33 @@ class OutletListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         """Return only the logged-in user's outlets."""
         return Outlet.objects.filter(user_profile=self.request.user.profile)
+
+    def list(self, request, *args, **kwargs):
+        """Custom list method to return structured response."""
+        try:
+            queryset = self.get_queryset()
+            serializer = self.get_serializer(queryset, many=True)
+            data = serializer.data
+
+            # Check if data is empty and respond accordingly
+            if not data:
+                return Response({
+                    "status": True,
+                    "message": "No outlets found",
+                    "data": []
+                }, status=status.HTTP_200_OK)
+
+            return Response({
+                "status": True,
+                "message": "Data fetched successfully",
+                "data": data
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({
+                "status": False,
+                "message": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
 
     def create(self, request, *args, **kwargs):
         """Custom create method to return a structured response."""
@@ -181,13 +207,15 @@ class OutletListCreateView(generics.ListCreateAPIView):
                 "message": str(e)
             }, status=status.HTTP_400_BAD_REQUEST)
 
+
 class OutletDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = OutletSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         """Ensure users can only update/delete their own outlets"""
-        return Outlet.objects.filter(user_profile=self.request.user.profile)
+        data =  Outlet.objects.filter(user_profile=self.request.user.profile)
+        return Response({"status": True, "data": OutletSerializer(data, many=True).data}, status=status.HTTP_200_OK)
 
     def update(self, request, *args, **kwargs):
         """Custom update method for structured responses."""

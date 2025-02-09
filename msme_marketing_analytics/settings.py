@@ -121,13 +121,14 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.1/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = "en-us"  # Keep this as 'en-us' unless you want Hindi ('hi')
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = "Asia/Kolkata"  # Set to Indian Standard Time (IST)
 
-USE_I18N = True
+USE_I18N = True  # Enable internationalization
 
-USE_TZ = True
+USE_TZ = True  # Keep timezone support enabled
+
 
 
 # Static files (CSS, JavaScript, Images)
@@ -233,3 +234,36 @@ AUTHENTICATION_BACKENDS = [
     'api.v1.accounts.auth_backends.EmailOrUsernameModelBackend',  # Custom backend
     'django.contrib.auth.backends.ModelBackend',  # Default backend
 ]
+
+# Twilio Configuration
+TWILIO_ACCOUNT_SID = config("TWILIO_ACCOUNT_SID")
+TWILIO_AUTH_TOKEN = config("TWILIO_AUTH_TOKEN")
+TWILIO_PHONE_NUMBER = config("TWILIO_PHONE_NUMBER")
+
+
+
+IMGBB_API_KEY = config("IMGBB_API_KEY")
+IMGUR_CLIENT_ID = config("IMGUR_CLIENT_ID")
+IMGUR_CLIENT_SECRET = config("IMGUR_CLIENT_SECRET")
+
+
+# Email Configuration
+# EMAIL_BACKEND = config("EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend")
+# EMAIL_HOST = config("EMAIL_HOST", "smtp.gmail.com")
+# EMAIL_PORT = 587
+# EMAIL_USE_TLS = config("EMAIL_USE_TLS", "True") == "True"
+# EMAIL_USE_SSL = config("EMAIL_USE_SSL", "False") == "True"
+# EMAIL_HOST_USER = config("EMAIL_HOST_USER")
+# EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD")
+# DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER)
+
+
+
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = "smtp.gmail.com"  # Use your email provider's SMTP host
+EMAIL_PORT = 587  # Change to 465 if using SSL
+EMAIL_USE_TLS = True  # Set to False if using SSL
+EMAIL_USE_SSL = False  # Set to True if using SSL
+EMAIL_HOST_USER = "kamleshlovewanshi2025@gmail.com"
+EMAIL_HOST_PASSWORD = "tbeq khsd dnkb updv"  # Use App Password if using Gmail
+DEFAULT_FROM_EMAIL = "kamleshlovewanshi2025@gmail.com"

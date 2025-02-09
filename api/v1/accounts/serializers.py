@@ -84,3 +84,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
         instance.update_outlet_count()
 
         return instance
+
+
+
+
