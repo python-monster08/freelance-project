@@ -150,12 +150,31 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
 # Configure CORS Settings
-CORS_ALLOW_ALL_ORIGINS = True
+#CORS_ALLOW_ALL_ORIGINS = True
 #CORS_ALLOWED_ORIGINS = [
 #    "http://localhost:3000",  # React frontend
 #    "http://127.0.0.1:3000",
 #    "https://yourfrontend.com",
 #]
+
+# Allow all origins
+CORS_ALLOW_ALL_ORIGINS = True
+
+# Ensure proper handling of preflight OPTIONS requests
+CORS_ALLOW_METHODS = [
+    'GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS',
+]
+
+# Allow specific headers if needed
+CORS_ALLOW_HEADERS = [
+    'content-type',
+    'authorization',
+    'x-csrftoken',
+    # add other headers your frontend might be sending
+]
+
+# If you want credentials to be allowed
+CORS_ALLOW_CREDENTIALS = True
 
 
 # Configure DRF and JWT
