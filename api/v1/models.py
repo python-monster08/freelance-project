@@ -126,7 +126,32 @@ class Outlet(models.Model):
         """Override save method to update the number_of_outlets"""
         super().save(*args, **kwargs)
         self.user_profile.update_outlet_count()
+        
+class Customer(models.Model):
+    """ Model for storing customer details """
 
+    GENDER_CHOICES = [
+        ('male', 'Male'),
+        ('female', 'Female'),
+        ('other', 'Other'),
+    ]
+
+    first_name = models.CharField(max_length=100)
+    last_name = models.CharField(max_length=100)
+    email = models.EmailField()
+    whatsapp_number = models.CharField(max_length=15)
+    gender = models.CharField(max_length=10, choices=GENDER_CHOICES, null=True, blank=True) 
+    dob = models.DateField(null=True, blank=True)
+    anniversary_cate = models.DateField(null=True, blank=True)
+    city = models.CharField(max_length=100)
+
+    def __str__(self):
+        return f"{self.first_name} {self.last_name}"
+
+    class Meta:
+        db_table = "customer"
+        verbose_name = "Customer"
+        verbose_name_plural = "Customers"
 
 
 class CustomerFeedback(models.Model):
@@ -147,13 +172,13 @@ class CustomerFeedback(models.Model):
         ("Frustrated", "Frustrated"),
     ]
 
-    user_profile = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name="feedbacks")
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name="feedbacks")
     outlet = models.ForeignKey(Outlet, on_delete=models.CASCADE, related_name="feedbacks")
 
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
     email = models.EmailField()
-    whatsapp_number = models.CharField(max_length=15, help_text="Include country code (e.g., +91)")
+    whatsapp_number = models.CharField(max_length=15)
 
     birthday = models.DateField(null=True, blank=True)
     anniversary = models.DateField(null=True, blank=True)
@@ -218,3 +243,42 @@ class Campaign(models.Model):
 
     def __str__(self):
         return f"{self.name} - {self.channel_type}"
+
+
+class Profession(models.Model):
+    """Model for storing profession details"""
+    name = models.CharField(max_length=100)
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        db_table = "profession"
+        verbose_name = "Profession"
+        verbose_name_plural = "Professions"
+
+class RewardChoice(models.Model):
+    """Model for storing reward choices"""
+    name = models.CharField(max_length=100)
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        db_table = "reward_choice"
+        verbose_name = "Reward Choice"
+        verbose_name_plural = "Reward Choices"
+
+
+class CampaignType(models.Model):
+    """Model for storing campaign types"""
+    name = models.CharField(max_length=100)
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        db_table = "campaign_type"
+        verbose_name = "Campaign Type"
+        verbose_name_plural = "Campaign Types"
+

@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from api.v1.models import *
 from .serializers import *
 from .utils import *
+from rest_framework.viewsets import ModelViewSet
 
 from rest_framework import generics, status
 from rest_framework.response import Response
@@ -175,4 +176,63 @@ class CampaignRetrieveUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
             "status": True,
             "message": "Campaign deleted successfully",
             "data": []
+        }, status=status.HTTP_200_OK)
+
+
+
+class ProfessionViewSet(ModelViewSet):
+    queryset = Profession.objects.all()
+    serializer_class = ProfessionSerializer
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({
+            "status": True,
+            "message": "List of all professions",
+            "data": serializer.data
+        }, status=status.HTTP_200_OK)
+
+class RewardChoiceViewSet(ModelViewSet):
+    queryset = RewardChoice.objects.all()
+    serializer_class = RewardChoiceSerializer
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({
+            "status": True,
+            "message": "List of all reward choices",
+            "data": serializer.data
+        }, status=status.HTTP_200_OK)
+
+class CampaignTypeViewSet(ModelViewSet):
+    queryset = CampaignType.objects.all()
+    serializer_class = CampaignTypeSerializer
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({
+            "status": True,
+            "message": "List of all campaign types",
+            "data": serializer.data
+        }, status=status.HTTP_200_OK)
+
+
+
+class OutletListViewSet(ModelViewSet):
+    """ViewSet for listing user profiles with their sub_outlets"""
+
+    queryset = UserProfile.objects.all()
+    serializer_class = GetUserProfileSerializer
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        
+        return Response({
+            "status": True,
+            "message": "User profiles with outlets retrieved successfully",
+            "data": serializer.data
         }, status=status.HTTP_200_OK)

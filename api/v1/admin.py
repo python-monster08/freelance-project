@@ -1,13 +1,13 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.utils.translation import gettext_lazy as _
-from .models import UserMaster, UserProfile, Outlet, CustomerFeedback
-
+from .models import *
 
 class UserMasterAdmin(UserAdmin):
     model = UserMaster
-    list_display = ("email", "username", "phone_number", "role", "is_active", "is_staff")
+    list_display = ("id","email", "username", "phone_number", "role", "is_active", "is_staff")
     list_filter = ("role", "is_active", "is_staff", "is_superuser")
+    ordering = ("id", "email", "role")
     
     fieldsets = (
         (None, {"fields": ("email", "username", "phone_number", "password")}),
@@ -56,6 +56,33 @@ class CustomerFeedbackAdmin(admin.ModelAdmin):
     ]
     search_fields = ["first_name", "last_name", "email", "city"]
     list_filter = ["city", "overall_experience", "service_quality_rating", "item_quality_rating", "value_for_money", "would_recommend", "emotions"]
+
+@admin.register(Customer)
+class CustomerAdmin(admin.ModelAdmin):
+    list_display = ('first_name', 'last_name', 'email', 'whatsapp_number', 'gender', 'city')
+    search_fields = ('first_name', 'last_name', 'email', 'whatsapp_number', 'city')
+    list_filter = ('gender', 'city')
+    ordering = ('first_name',)
+
+
+
+@admin.register(Profession)
+class ProfessionAdmin(admin.ModelAdmin):
+    list_display = ('id', 'name')  # Display ID and name in the admin panel
+    search_fields = ('name',)  # Enable search by name
+    ordering = ('id',)  # Order by ID
+
+@admin.register(RewardChoice)
+class RewardChoiceAdmin(admin.ModelAdmin):
+    list_display = ('id', 'name')
+    search_fields = ('name',)
+    ordering = ('id',)
+
+@admin.register(CampaignType)
+class CampaignTypeAdmin(admin.ModelAdmin):
+    list_display = ('id', 'name')
+    search_fields = ('name',)
+    ordering = ('id',)
 
 
 admin.site.register(UserMaster, UserMasterAdmin)

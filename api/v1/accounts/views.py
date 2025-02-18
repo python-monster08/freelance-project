@@ -1,5 +1,6 @@
 from rest_framework import generics, status
 from rest_framework.views import APIView
+from rest_framework.viewsets import ModelViewSet
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -10,6 +11,9 @@ import requests
 from django.contrib.auth.hashers import check_password
 from datetime import datetime, timedelta
 from django.conf import settings
+from rest_framework.parsers import MultiPartParser, FormParser
+import pandas as pd
+from django.core.exceptions import ValidationError
 
 UserMaster = get_user_model()
 
@@ -353,4 +357,64 @@ class UserProfileView(generics.RetrieveUpdateAPIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+
+class CustomerCreateView(APIView):
+    """ API to add a single customer via form submission """
+
+    def post(self, request):
+        serializer = CustomerSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"message": "Customer created successfully!", "data": serializer.data}, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class CustomerUploadView(APIView):
+    """API to upload customer data via an Excel or CSV file"""
+    
+    parser_classes = (MultiPartParser, FormParser)
+
+    def post(self, request):
+        file = request.FILES.get('file')
+        if not file:
+            return Response({"status":False, "error": "No file uploaded!"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            # Determine the file type based on the extension
+            file_extension = file.name.split('.')[-1].lower()
+            if file_extension == 'xlsx' or file_extension == 'xls':
+                df = pd.read_excel(file)
+            elif file_extension == 'csv':
+                df = pd.read_csv(file)
+            else:
+                return Response({"status":False, "error": "Unsupported file format. Please upload an Excel or CSV file."}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Ensure required columns exist in the DataFrame
+            required_columns = {"first_name", "last_name", "email", "whatsapp_number", "gender", "dob", "anniversary_cate", "city"}
+            if not required_columns.issubset(set(df.columns)):
+                return Response({"status":False, "error": f"Missing required columns. Required: {required_columns}"}, status=status.HTTP_400_BAD_REQUEST)
+
+            customers = []
+            for _, row in df.iterrows():
+                try:
+                    customer = Customer(
+                        first_name=row["first_name"],
+                        last_name=row["last_name"],
+                        email=row["email"],
+                        whatsapp_number=row["whatsapp_number"],
+                        gender=row["gender"],
+                        dob=row["dob"] if pd.notna(row["dob"]) else None,
+                        anniversary_cate=row["anniversary_cate"] if pd.notna(row["anniversary_cate"]) else None,
+                        city=row["city"]
+                    )
+                    customer.full_clean()  # Validate fields
+                    customers.append(customer)
+                except ValidationError as e:
+                    return Response({"status":False, "error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+            Customer.objects.bulk_create(customers)
+            return Response({"status":True, "message": "Customers uploaded successfully!"}, status=status.HTTP_201_CREATED)
+ 
+        except Exception as e:
+            return Response({"status":False, "error": f"Invalid file format or data: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
+        
 
