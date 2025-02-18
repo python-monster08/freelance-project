@@ -238,6 +238,9 @@ class CampaignTypeViewSet(ModelViewSet):
 #         }, status=status.HTTP_200_OK)
 
 
+
+
+
 class OutletListViewSet(ModelViewSet):
     """ViewSet for listing user profiles with their sub_outlets"""
     permission_classes = [IsAuthenticated]
