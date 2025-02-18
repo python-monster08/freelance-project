@@ -20,13 +20,17 @@ __pycache__/
 # Ignore SQLite database
 # *.sqlite3
 # *.db
-
+msme_marketing_analytics/__pycache__
 # Ignore logs and debug files
 *.log
 logs/
 *.pid
 *.seed
 *.bak
+
+api/v1/urls/__pycache__/
+
+api/v1/accounts/__pycache__/
 
 # Ignore media/uploads (if applicable)
 media/
