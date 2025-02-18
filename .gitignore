@@ -1,61 +1,51 @@
-# Python bytecode and compiled files
-__pycache__/
-__pycache__
-*.py[cod]
-*$py.class
-/__pycache__/
-# Virtual environment
-venv/
+# Ignore virtual environment
 env/
-*.venv
+venv/
 
-# Django-related files
-db.sqlite3
-*.sqlite3
-/media/
-staticfiles/
+# Ignore Python cache files
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ignore Django migrations
+*/migrations/__pycache__/
+*/migrations/*.pyc
+*/migrations/*.pyo
+*/migrations/*.pyd
+
+# Ignore SQLite database
+# *.sqlite3
+# *.db
+
+# Ignore logs and debug files
 *.log
+logs/
+*.pid
+*.seed
+*.bak
 
-# Environment variables
+# Ignore media/uploads (if applicable)
+media/
+staticfiles/
+
+# Ignore environment variables & secrets
 .env
-*.env
+*.pem
+config.json
 
-# VSCode settings (if using VSCode)
-.vscode/
-
-# PyCharm settings (if using PyCharm)
-.idea/
-
-# MacOS system files
+# Ignore compiled and temporary files
+*.swp
+*.swo
 .DS_Store
+Thumbs.db
 
-# Ignore migrations compiled files (optional)
-**/migrations/*.pyc
-**/migrations/__pycache__/
+# Ignore Gunicorn socket files
+*.sock
 
-# Ignore pytest cache
-.pytest_cache/
-
-# Ignore coverage reports
-htmlcov/
-.coverage
-.coverage.*
-
-# Ignore Jupyter Notebook checkpoints
-.ipynb_checkpoints/
-
-# Ignore compiled translations
-*.mo
-
-# Ignore celery task queues
-celerybeat-schedule
-celerybeat.pid
-
-# Ignore Render deployment settings (if applicable)
-render.yaml
-
-# Ignore Docker files (if using Docker)
-*.dockerignore
-docker-compose.yml
-Dockerfile
-/__pycache__/
+# Ignore Nginx and Gunicorn logs
+nginx-error.log
+nginx-access.log
+gunicorn-error.log
+gunicorn-access.log
