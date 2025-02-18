@@ -221,18 +221,38 @@ class CampaignTypeViewSet(ModelViewSet):
 
 
 
+# class OutletListViewSet(ModelViewSet):
+#     """ViewSet for listing user profiles with their sub_outlets"""
+
+#     queryset = UserProfile.objects.all()
+#     serializer_class = GetUserProfileSerializer
+
+#     def list(self, request, *args, **kwargs):
+#         queryset = self.get_queryset()
+#         serializer = self.get_serializer(queryset, many=True)
+        
+#         return Response({
+#             "status": True,
+#             "message": "User profiles with outlets retrieved successfully",
+#             "data": serializer.data
+#         }, status=status.HTTP_200_OK)
+
+
 class OutletListViewSet(ModelViewSet):
     """ViewSet for listing user profiles with their sub_outlets"""
-
-    queryset = UserProfile.objects.all()
+    permission_classes = [IsAuthenticated]
     serializer_class = GetUserProfileSerializer
+
+    def get_queryset(self):
+        """Filter data to return only the logged-in user's profile"""
+        return UserProfile.objects.filter(user=self.request.user)
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
         serializer = self.get_serializer(queryset, many=True)
-        
+
         return Response({
             "status": True,
-            "message": "User profiles with outlets retrieved successfully",
+            "message": "User profile with outlets retrieved successfully",
             "data": serializer.data
         }, status=status.HTTP_200_OK)
