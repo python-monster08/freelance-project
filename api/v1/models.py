@@ -282,3 +282,6 @@ class CampaignType(models.Model):
         verbose_name = "Campaign Type"
         verbose_name_plural = "Campaign Types"
 
+
+
+
