@@ -245,6 +245,9 @@ class Campaign(models.Model):
         return f"{self.name} - {self.channel_type}"
 
 
+
+
+
 class Profession(models.Model):
     """Model for storing profession details"""
     name = models.CharField(max_length=100)
@@ -285,3 +288,44 @@ class CampaignType(models.Model):
 
 
 
+# class Campaign(models.Model):
+#     """Model to store campaign details"""
+
+#     CHANNEL_CHOICES = [
+#         ("whatsapp", "WhatsApp"),
+#         ("email", "Email"),
+#         ("sms", "SMS"),
+#         ("all", "All"),
+#     ]
+
+#     user_profile = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name="campaigns")
+#     name = models.CharField(max_length=255)
+#     message = models.TextField()
+#     discount_value = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+#     expiry_date = models.DateField()
+#     image_url = models.URLField(null=True, blank=True)
+#     button_url = models.URLField(null=True, blank=True)
+#     channel_type = models.CharField(max_length=20, choices=CHANNEL_CHOICES, default="whatsapp")
+
+#     # New Fields for Storing Given Data
+#     campaign_type = models.ForeignKey(CampaignType, on_delete=models.SET_NULL, null=True, related_name="campaigns")
+#     reward_choice = models.ForeignKey(RewardChoice, on_delete=models.SET_NULL, null=True, related_name="campaigns")
+#     profession = models.ForeignKey(Profession, on_delete=models.SET_NULL, null=True, related_name="campaigns")
+#     outlets = models.ManyToManyField(Outlet, related_name="campaigns")
+#     channel = models.ManyToManyField(CampaignType, related_name="campaign_channels")
+
+#     logo = models.ImageField(upload_to="campaign_logos/", null=True, blank=True)
+#     bg_image = models.ImageField(upload_to="campaign_bg_images/", null=True, blank=True)
+#     button_url = models.URLField(null=True, blank=True)
+
+#     created_on = models.DateTimeField(auto_now_add=True)
+#     updated_on = models.DateTimeField(auto_now=True)
+#     is_deleted = models.BooleanField(default=False)
+
+#     class Meta:
+#         db_table = "campaign"
+#         verbose_name = "Campaign"
+#         verbose_name_plural = "Campaigns"
+
+#     def __str__(self):
+#         return f"{self.name} - {self.channel_type}"

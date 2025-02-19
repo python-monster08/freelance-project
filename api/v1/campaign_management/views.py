@@ -247,7 +247,7 @@ class OutletListViewSet(ModelViewSet):
     serializer_class = GetUserProfileSerializer
 
     def get_queryset(self):
-        """Filter data to return only the logged-in user's profile"""
+        """Filter data to return only the logged- in user's profile"""
         return UserProfile.objects.filter(user=self.request.user)
 
     def list(self, request, *args, **kwargs):

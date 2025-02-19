@@ -36,21 +36,21 @@ class UserMasterAdmin(UserAdmin):
 
 class UserProfileAdmin(admin.ModelAdmin):
     list_display = [
-        "user", "brand_name", "area", "city", "zip_code", "state", "number_of_outlets", "daily_approximate_footfalls", "gstin", "website"
+        "id","user", "brand_name", "area", "city", "zip_code", "state", "number_of_outlets", "daily_approximate_footfalls", "gstin", "website"
     ]
     search_fields = ["user__username", "user__email", "brand_name", "city", "state"]
     list_filter = ["city", "state"]
 
 
 class OutletAdmin(admin.ModelAdmin):
-    list_display = ["user_profile", "name", "area", "city", "zip_code", "state", "daily_footfalls"]
+    list_display = ["id","user_profile", "name", "area", "city", "zip_code", "state", "daily_footfalls"]
     search_fields = ["user_profile__user__username", "user_profile__brand_name", "name", "city", "state"]
     list_filter = ["city", "state"]
 
 
 class CustomerFeedbackAdmin(admin.ModelAdmin):
     list_display = [
-        "first_name", "last_name", "email", "whatsapp_number", "city", "date_of_visit",
+        "id","first_name", "last_name", "email", "whatsapp_number", "city", "date_of_visit",
         "overall_experience", "service_quality_rating", "item_quality_rating", "value_for_money",
         "would_recommend", "likelihood_to_return", "emotions", "created_at"
     ]
@@ -59,7 +59,7 @@ class CustomerFeedbackAdmin(admin.ModelAdmin):
 
 @admin.register(Customer)
 class CustomerAdmin(admin.ModelAdmin):
-    list_display = ('first_name', 'last_name', 'email', 'whatsapp_number', 'gender', 'city')
+    list_display = ("id",'first_name', 'last_name', 'email', 'whatsapp_number', 'gender', 'city')
     search_fields = ('first_name', 'last_name', 'email', 'whatsapp_number', 'city')
     list_filter = ('gender', 'city')
     ordering = ('first_name',)

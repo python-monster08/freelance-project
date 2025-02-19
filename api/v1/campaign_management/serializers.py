@@ -8,6 +8,20 @@ class CampaignSerializer(serializers.ModelSerializer):
         model = Campaign
         fields = "__all__"
 
+# class CampaignSerializer(serializers.ModelSerializer):
+#     """Serializer for Campaign model"""
+
+#     class Meta:
+#         model = Campaign
+#         fields = "__all__"
+#         extra_kwargs = {"user_profile": {"required": False}}  # Make `user_profile` optional
+
+#     def create(self, validated_data):
+#         """Auto-assign the user_profile from the request"""
+#         request = self.context.get("request")
+#         validated_data["user_profile"] = request.user.profile
+#         return super().create(validated_data)
+
 
 class ProfessionSerializer(serializers.ModelSerializer):
     class Meta:
