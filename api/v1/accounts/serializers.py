@@ -91,3 +91,18 @@ class CustomerSerializer(serializers.ModelSerializer):
         model = Customer
         fields = '__all__'
 
+
+
+
+class AddSingleCustomerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Customer
+        fields = ['id', 'first_name', 'last_name', 'email', 'whatsapp_number','gender', 'dob', 'anniversary_date', 'city']
+
+    def to_internal_value(self, data):
+        """ Convert empty strings to None before validation """
+        if "dob" in data and data["dob"] == "":
+            data["dob"] = None
+        if "anniversary_date" in data and data["anniversary_date"] == "":
+            data["anniversary_date"] = None
+        return super().to_internal_value(data)

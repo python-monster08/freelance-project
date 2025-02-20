@@ -84,6 +84,35 @@ class CampaignTypeAdmin(admin.ModelAdmin):
     search_fields = ('name',)
     ordering = ('id',)
 
+@admin.register(Channel)
+class ChannelAdmin(admin.ModelAdmin):
+    list_display = ("id", "name")  # Display ID and Name in the admin list
+    search_fields = ("name",)  # Allow searching by channel name
+    ordering = ("id",)  # Order by ID
+
+@admin.register(Campaign)
+class CampaignAdmin(admin.ModelAdmin):
+    list_display = ("name", "user_profile", "expiry_date", "is_deleted", "created_on")
+    list_filter = ("expiry_date", "is_deleted", "channels", "campaign_type")
+    search_fields = ("name", "message", "user_profile__user__username")
+    ordering = ("-created_on",)
+    filter_horizontal = ("channels", "outlets")
+    readonly_fields = ("created_on", "updated_on")
+
+    fieldsets = (
+        ("Basic Information", {
+            "fields": ("user_profile", "name", "message", "expiry_date", "button_url")
+        }),
+        ("Campaign Details", {
+            "fields": ("channels", "campaign_type", "reward_choice", "profession", "outlets", "reward_choice_text")
+        }),
+        ("Media", {
+            "fields": ("logo", "bg_image")
+        }),
+        ("System Information", {
+            "fields": ("is_deleted", "created_on", "updated_on")
+        }),
+    )
 
 admin.site.register(UserMaster, UserMasterAdmin)
 admin.site.register(UserProfile, UserProfileAdmin)

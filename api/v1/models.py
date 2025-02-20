@@ -1,6 +1,8 @@
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
-
+import os
+from django.utils.timezone import now
+from django.utils.text import slugify
 
 class UserManager(BaseUserManager):
     """Custom manager for UserMaster model"""
@@ -142,7 +144,7 @@ class Customer(models.Model):
     whatsapp_number = models.CharField(max_length=15)
     gender = models.CharField(max_length=10, choices=GENDER_CHOICES, null=True, blank=True) 
     dob = models.DateField(null=True, blank=True)
-    anniversary_cate = models.DateField(null=True, blank=True)
+    anniversary_date = models.DateField(null=True, blank=True)
     city = models.CharField(max_length=100)
 
     def __str__(self):
@@ -213,36 +215,36 @@ class CustomerFeedback(models.Model):
 
 
 
-class Campaign(models.Model):
-    """Model to store campaign details"""
+# class Campaign(models.Model):
+#     """Model to store campaign details"""
 
-    CHANNEL_CHOICES = [
-        ("whatsapp", "WhatsApp"),
-        ("email", "Email"),
-        ("sms", "SMS"),
-        ("all", "All"),
-    ]
+#     CHANNEL_CHOICES = [
+#         ("whatsapp", "WhatsApp"),
+#         ("email", "Email"),
+#         ("sms", "SMS"),
+#         ("all", "All"),
+#     ]
 
-    user_profile = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name="campaigns")
-    name = models.CharField(max_length=255)
-    message = models.TextField()
-    discount_value = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    expiry_date = models.DateField()
-    image_url = models.URLField(null=True, blank=True)
-    button_url = models.URLField(null=True, blank=True)
-    channel_type = models.CharField(max_length=20, choices=CHANNEL_CHOICES, default="whatsapp")
+#     user_profile = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name="campaigns")
+#     name = models.CharField(max_length=255)
+#     message = models.TextField()
+#     discount_value = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+#     expiry_date = models.DateField()
+#     image_url = models.URLField(null=True, blank=True)
+#     button_url = models.URLField(null=True, blank=True)
+#     channel_type = models.CharField(max_length=20, choices=CHANNEL_CHOICES, default="whatsapp")
 
-    created_on = models.DateTimeField(auto_now_add=True)
-    updated_on = models.DateTimeField(auto_now=True)
-    is_deleted = models.BooleanField(default=False)
+#     created_on = models.DateTimeField(auto_now_add=True)
+#     updated_on = models.DateTimeField(auto_now=True)
+#     is_deleted = models.BooleanField(default=False)
 
-    class Meta:
-        db_table = "campaign"
-        verbose_name = "Campaign"
-        verbose_name_plural = "Campaigns"
+#     class Meta:
+#         db_table = "campaign"
+#         verbose_name = "Campaign"
+#         verbose_name_plural = "Campaigns"
 
-    def __str__(self):
-        return f"{self.name} - {self.channel_type}"
+#     def __str__(self):
+#         return f"{self.name} - {self.channel_type}"
 
 
 
@@ -286,46 +288,70 @@ class CampaignType(models.Model):
         verbose_name_plural = "Campaign Types"
 
 
+class Channel(models.Model):
+    """Model to store communication channels"""
+    id = models.IntegerField(primary_key=True)  # Storing integer values (1=WhatsApp, 2=Email, etc.)
+    name = models.CharField(max_length=50, unique=True)
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        db_table = "channel"
+        verbose_name = "Channel"
+        verbose_name_plural = "Channels"
+
+class Campaign(models.Model):
+    """Model to store campaign details"""
+    
+    user_profile = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name="campaigns")
+    name = models.CharField(max_length=255)
+    message = models.TextField()
+    expiry_date = models.DateField()
+    button_url = models.URLField(null=True, blank=True)
+
+    channels = models.ManyToManyField(Channel, related_name="campaign_channels")
+    campaign_type = models.ForeignKey(CampaignType, on_delete=models.SET_NULL, null=True, related_name="campaigns")
+    reward_choice = models.ForeignKey(RewardChoice, on_delete=models.SET_NULL, null=True, related_name="campaigns")
+    profession = models.ForeignKey(Profession, on_delete=models.SET_NULL, null=True, related_name="campaigns")
+    outlets = models.ManyToManyField(Outlet, related_name="campaigns", blank=True)
+
+    reward_choice_text = models.CharField(max_length=50, null=True, blank=True)
+
+    logo = models.ImageField(upload_to="campaign_logos/", null=True, blank=True)
+    bg_image = models.ImageField(upload_to="campaign_bg_images/", null=True, blank=True)
+
+    created_on = models.DateTimeField(auto_now_add=True)
+    updated_on = models.DateTimeField(auto_now=True)
+    is_deleted = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = "campaign"
+        verbose_name = "Campaign"
+        verbose_name_plural = "Campaigns"
+
+    def __str__(self):
+        """Return campaign name with channel names"""
+        return f"{self.name} - {', '.join([channel.name for channel in self.channels.all()])}"
+
+    def save(self, *args, **kwargs):
+        """Rename uploaded images before saving"""
+        current_date = now().strftime("%Y%m%d")
+        slugified_name = slugify(self.name)
+
+        # Rename logo image
+        if self.logo and hasattr(self.logo, "name"):
+            ext = os.path.splitext(self.logo.name)[1]
+            self.logo.name = f"campaign_logos/{slugified_name}_{current_date}{ext}"
+
+        # Rename background image
+        if self.bg_image and hasattr(self.bg_image, "name"):
+            ext = os.path.splitext(self.bg_image.name)[1]
+            self.bg_image.name = f"campaign_bg_images/{slugified_name}_{current_date}{ext}"
+
+        super().save(*args, **kwargs)
 
 
-# class Campaign(models.Model):
-#     """Model to store campaign details"""
 
-#     CHANNEL_CHOICES = [
-#         ("whatsapp", "WhatsApp"),
-#         ("email", "Email"),
-#         ("sms", "SMS"),
-#         ("all", "All"),
-#     ]
 
-#     user_profile = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name="campaigns")
-#     name = models.CharField(max_length=255)
-#     message = models.TextField()
-#     discount_value = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-#     expiry_date = models.DateField()
-#     image_url = models.URLField(null=True, blank=True)
-#     button_url = models.URLField(null=True, blank=True)
-#     channel_type = models.CharField(max_length=20, choices=CHANNEL_CHOICES, default="whatsapp")
 
-#     # New Fields for Storing Given Data
-#     campaign_type = models.ForeignKey(CampaignType, on_delete=models.SET_NULL, null=True, related_name="campaigns")
-#     reward_choice = models.ForeignKey(RewardChoice, on_delete=models.SET_NULL, null=True, related_name="campaigns")
-#     profession = models.ForeignKey(Profession, on_delete=models.SET_NULL, null=True, related_name="campaigns")
-#     outlets = models.ManyToManyField(Outlet, related_name="campaigns")
-#     channel = models.ManyToManyField(CampaignType, related_name="campaign_channels")
-
-#     logo = models.ImageField(upload_to="campaign_logos/", null=True, blank=True)
-#     bg_image = models.ImageField(upload_to="campaign_bg_images/", null=True, blank=True)
-#     button_url = models.URLField(null=True, blank=True)
-
-#     created_on = models.DateTimeField(auto_now_add=True)
-#     updated_on = models.DateTimeField(auto_now=True)
-#     is_deleted = models.BooleanField(default=False)
-
-#     class Meta:
-#         db_table = "campaign"
-#         verbose_name = "Campaign"
-#         verbose_name_plural = "Campaigns"
-
-#     def __str__(self):
-#         return f"{self.name} - {self.channel_type}"

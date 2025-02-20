@@ -14,6 +14,8 @@ from django.conf import settings
 from rest_framework.parsers import MultiPartParser, FormParser
 import pandas as pd
 from django.core.exceptions import ValidationError
+from rest_framework.pagination import PageNumberPagination
+
 
 UserMaster = get_user_model()
 
@@ -358,15 +360,27 @@ class UserProfileView(generics.RetrieveUpdateAPIView):
 
 
 
+# class CustomerCreateView(APIView):
+#     """ API to add a single customer via form submission """
+
+#     def post(self, request):
+#         serializer = CustomerSerializer(data=request.data)
+#         if serializer.is_valid():
+#             serializer.save()
+#             return Response({"message": "Customer created successfully!", "data": serializer.data}, status=status.HTTP_201_CREATED)
+#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
 class CustomerCreateView(APIView):
-    """ API to add a single customer via form submission """
+    """API to add a single customer via form submission"""
 
     def post(self, request):
-        serializer = CustomerSerializer(data=request.data)
+        serializer = AddSingleCustomerSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
-            return Response({"message": "Customer created successfully!", "data": serializer.data}, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"status": True, "message": "Customer created successfully!", "data": serializer.data}, status=status.HTTP_201_CREATED)
+        
+        return Response({"status": False, "error": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
 class CustomerUploadView(APIView):
     """API to upload customer data via an Excel or CSV file"""
@@ -389,7 +403,7 @@ class CustomerUploadView(APIView):
                 return Response({"status":False, "error": "Unsupported file format. Please upload an Excel or CSV file."}, status=status.HTTP_400_BAD_REQUEST)
 
             # Ensure required columns exist in the DataFrame
-            required_columns = {"first_name", "last_name", "email", "whatsapp_number", "gender", "dob", "anniversary_cate", "city"}
+            required_columns = {"first_name", "last_name", "email", "whatsapp_number", "gender", "dob", "anniversary_date", "city"}
             if not required_columns.issubset(set(df.columns)):
                 return Response({"status":False, "error": f"Missing required columns. Required: {required_columns}"}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -403,7 +417,7 @@ class CustomerUploadView(APIView):
                         whatsapp_number=row["whatsapp_number"],
                         gender=row["gender"],
                         dob=row["dob"] if pd.notna(row["dob"]) else None,
-                        anniversary_cate=row["anniversary_cate"] if pd.notna(row["anniversary_cate"]) else None,
+                        anniversary_date=row["anniversary_date"] if pd.notna(row["anniversary_date"]) else None,
                         city=row["city"]
                     )
                     customer.full_clean()  # Validate fields
@@ -417,4 +431,57 @@ class CustomerUploadView(APIView):
         except Exception as e:
             return Response({"status":False, "error": f"Invalid file format or data: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
         
+
+
+# Custom Pagination Class
+class CustomPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size =100
+
+    def get_paginated_response(self, data):
+        limit = self.request.query_params.get('page_size', 10)
+        return Response({
+            'status': True,
+            'links': {
+                'next': self.get_next_link(),
+                'previous': self.get_previous_link()
+            },
+            'count': self.page.paginator.count,
+            'page_size':int(limit),
+            'data': data
+        })  
+# API to list customers with pagination
+class CustomerListView(generics.ListAPIView):
+    queryset = Customer.objects.all().order_by('-id')
+    serializer_class = CustomerSerializer
+    pagination_class = CustomPagination
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        page = self.paginate_queryset(queryset)
+
+        if page is not None:
+            return self.get_paginated_response(self.get_serializer(page, many=True).data)
+
+        return Response({
+            "status": True,
+            "message": "User profiles with outlets retrieved successfully",
+            "data": self.get_serializer(queryset, many=True).data
+        }, status=status.HTTP_200_OK)
+
+# API to retrieve a specific customer
+class CustomerRetrieveView(generics.RetrieveAPIView):
+    queryset = Customer.objects.all()
+    serializer_class = CustomerSerializer
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+
+        return Response({
+            "status": True,
+            "message": "User profile retrieved successfully",
+            "data": serializer.data
+        }, status=status.HTTP_200_OK)
 

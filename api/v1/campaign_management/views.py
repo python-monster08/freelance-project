@@ -241,21 +241,56 @@ class CampaignTypeViewSet(ModelViewSet):
 
 
 
+# class OutletListViewSet(ModelViewSet):
+#     """ViewSet for listing user profiles with their sub_outlets"""
+#     permission_classes = [IsAuthenticated]
+#     serializer_class = GetUserProfileSerializer
+
+#     def get_queryset(self):
+#         """Filter data to return only the logged- in user's profile"""
+#         return UserProfile.objects.filter(user=self.request.user)
+
+#     def list(self, request, *args, **kwargs):
+#         queryset = self.get_queryset()
+#         serializer = self.get_serializer(queryset, many=True)
+
+#         return Response({
+#             "status": True,
+#             "message": "User profile with outlets retrieved successfully",
+#             "data": serializer.data
+#         }, status=status.HTTP_200_OK)
+
+
+
 class OutletListViewSet(ModelViewSet):
     """ViewSet for listing user profiles with their sub_outlets"""
     permission_classes = [IsAuthenticated]
     serializer_class = GetUserProfileSerializer
 
     def get_queryset(self):
-        """Filter data to return only the logged- in user's profile"""
+        """Filter data to return only the logged-in user's profile"""
         return UserProfile.objects.filter(user=self.request.user)
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
-        serializer = self.get_serializer(queryset, many=True)
+        response_data = []
+
+        for profile in queryset:
+            # ✅ Add the main outlet (UserProfile)
+            response_data.append({
+                "id": f"main-{profile.id}",  # Unique ID with prefix
+                "name": f"{profile.brand_name} (Main Outlet)"
+            })
+
+            # ✅ Add sub_outlets (Outlets under UserProfile)
+            for outlet in profile.outlets.all():
+                response_data.append({
+                    "id": f"sub-{outlet.id}",  # Unique ID with prefix
+                    "name": f"{outlet.name}"  # Indent sub-outlets
+                })
 
         return Response({
             "status": True,
             "message": "User profile with outlets retrieved successfully",
-            "data": serializer.data
+            "data": response_data
         }, status=status.HTTP_200_OK)
