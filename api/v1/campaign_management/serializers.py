@@ -1,12 +1,31 @@
 from rest_framework import serializers
 from api.v1.models import *
+from api.v1.accounts.serializers import OutletSerializer
 
-# class CampaignSerializer(serializers.ModelSerializer):
-#     """Serializer for Campaign model"""
+class GetCampaignSerializer(serializers.ModelSerializer):
+    """Serializer for retrieving Campaign details"""
 
-#     class Meta:
-#         model = Campaign
-#         fields = "__all__"
+    campaign_channel = serializers.SerializerMethodField()
+    # campaign_outlets = serializers.SerializerMethodField()
+    campaign_outlets = OutletSerializer(many=True, source="outlets")
+
+    class Meta:
+        model = Campaign
+        fields = [  # ✅ List all fields except campaign_logo & campaign_bg_image
+            "id", "name", "message", "expiry_date", "button_url",
+            "reward_choice", "profession", "campaign_type",
+            "campaign_channel", "campaign_outlets", "image_url",
+            "created_on", "updated_on"
+        ]
+
+    def get_campaign_channel(self, obj):
+        """Retrieve related campaign channels"""
+        return list(obj.channels.values_list("id", flat=True))  # Returns list of channel IDs
+
+    def get_campaign_outlets(self, obj):
+        """Retrieve related campaign outlets"""
+        return list(obj.outlets.values_list("id", flat=True))  # Returns list of outlet IDs
+
 
 
 class CampaignSerializer(serializers.ModelSerializer):

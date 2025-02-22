@@ -357,16 +357,31 @@ class Campaign(models.Model):
 
 
 {
-"campaign_channel":[1,2],   # 1 = WhatsApp, 2 = Email  Channel IDs
-"campaign_outlets": ["main-1", "sub-2", "sub-3"],  # main-1 = UserProfile ID 1, sub-2 & sub-3 = Outlet IDs 2, 3
-"reward_choice":1,  # RewardChoice ID
-"profession":1,   # Profession ID
-"campaign_type":1,  # CampaignType ID
-"campaign_name":'Birthday Celebrations', 
+"campaign_channel":[1,2],   
+"campaign_outlets": ["main-1", "sub-1"],
+"reward_choice":1,  
+"profession":1,
+"campaign_type":1,
+"name":'Spring Sale Campaign 2025', 
+"campaign_message":'Get 20% off on all items!',
 "campaign_reward_choice_text":'20%',
-"campaign_message":'bla bla bla',
-"campaign_expiry_date":'2025-02-18',
-"button_url":'www.google.com',
-"campaign_bg_image":'cat.png',    # Background Image File field
-"campaign_logo":'rat.png'       # Logo Image File field
+"campaign_expiry_date":'2025-03-01',
+"button_url":'https://yourwebsite.com/offer',
+"campaign_bg_image":'cat.png',    
+"campaign_logo":'rat.png'      
 }
+
+
+
+# name:"Spring Sale Campaign"
+# campaign_message:"Big Spring Sale! Get 20% OFF on all products. Hurry, limited time only!"
+# campaign_expiry_date:"2025-03-01" 
+# button_url: "https://yourwebsite.com/offer"
+# reward_choice:1
+# profession:1
+# campaign_type:1
+# campaign_reward_choice_text: "Flat 20% Discount on All Orders!"
+# campaign_channel: [1,2,3]
+# campaign_outlets: ["main-1", "sub-1"]
+# campaign_logo: <Upload logo file>
+# campaign_bg_image: <Upload background image file>

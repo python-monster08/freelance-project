@@ -5,7 +5,7 @@ from api.v1.models import *
 from .serializers import *
 from .utils import *
 from rest_framework.viewsets import ModelViewSet
-from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -292,25 +292,36 @@ class CampaignListCreateView(generics.ListCreateAPIView):
 
     serializer_class = CampaignSerializer
     permission_classes = [IsAuthenticated]
-    parser_classes = [MultiPartParser, FormParser]  # ✅ Support file uploads
+    http_method_names = ['get', 'post']
+    parser_classes = [MultiPartParser, FormParser,JSONParser]  # ✅ Support file uploads
 
     def get_queryset(self):
-        return Campaign.objects.filter(is_deleted=False)
+        return Campaign.objects.filter(is_deleted=False).order_by('-id')[:5]
+
     @swagger_auto_schema(
         operation_description="Retrieve all campaigns",
         responses={200: CampaignSerializer(many=True)}
     )
     def list(self, request, *args, **kwargs):
         """Return all campaigns with a structured response"""
-        queryset = self.get_queryset()
-        serializer = self.get_serializer(queryset, many=True)
+        try:
+            queryset = self.get_queryset()
+            serializer = GetCampaignSerializer(queryset, many=True)
 
-        return Response({
-            "status": True,
-            "message": "Campaigns retrieved successfully",
-            "data": serializer.data
-        }, status=status.HTTP_200_OK)
-    
+            return Response({
+                "status": True,
+                "message": "Campaigns retrieved successfully",
+                "data": {
+                    "campaigns": serializer.data  # ✅ Consistent structured response
+                }
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({
+                "status": False,
+                "message": f"Error retrieving campaigns: {str(e)}",
+                "data": None
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+  
     @swagger_auto_schema(
         manual_parameters=[
             openapi.Parameter("campaign_name", openapi.IN_FORM, description="Campaign Name", type=openapi.TYPE_STRING, required=True),
@@ -338,8 +349,17 @@ class CampaignListCreateView(generics.ListCreateAPIView):
                 # validated_data = serializer.validated_data
 
                 # ✅ Extract and convert channel IDs from request (Fix applied)
-                campaign_channels = list(map(int, request.data.get("campaign_channel", "").split(","))) if request.data.get("campaign_channel") else []
+                # campaign_channels = list(map(int, request.data.get("campaign_channel", "").split(","))) if request.data.get("campaign_channel") else []
+                campaign_channel_data = request.data.get("campaign_channel")
 
+                if isinstance(campaign_channel_data, str):  # If comma-separated string
+                    campaign_channels = list(map(int, campaign_channel_data.split(",")))
+                elif isinstance(campaign_channel_data, list):  # If list format
+                    campaign_channels = list(map(int, campaign_channel_data))
+                else:
+                    campaign_channels = []  # Default empty list if no valid input
+
+                # print(campaign_channels, type(campaign_channels), "campaign_channels")
                 # ✅ Extract and convert outlet IDs properly (Fix applied)
                 import json
                 campaign_outlets = json.loads(request.data.get("campaign_outlets", "[]"))
@@ -378,7 +398,7 @@ class CampaignListCreateView(generics.ListCreateAPIView):
                 image_url = self.upload_image_to_imgbb(final_image_b64)
                 if not image_url:
                     return Response({"status": False, "message": "Image upload failed"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
+                
                 # ✅ Create Campaign
                 campaign = Campaign.objects.create(
                     user_profile=request.user.profile,
@@ -390,9 +410,11 @@ class CampaignListCreateView(generics.ListCreateAPIView):
                     campaign_type=campaign_type,
                     reward_choice=reward_choice,
                     profession=profession,
+                    bg_image=bg_image,
+                    logo=logo_image,
                     image_url=image_url
                 )
-
+                print("logo_image",campaign.logo)
                 # ✅ Assign Many-to-Many relations
                 campaign.channels.set(Channel.objects.filter(id__in=campaign_channels))
                 campaign.outlets.set(outlets)
@@ -403,13 +425,24 @@ class CampaignListCreateView(generics.ListCreateAPIView):
                 return Response({
                     "status": True,
                     "message": "Campaign created successfully",
-                    "data": {"image_url": image_url}
+                    "data": {
+                        "campaign_name": campaign.name,
+                        "campaign_message": campaign.message,
+                        "campaign_expiry_date": campaign.expiry_date,
+                        "image_url": image_url,
+                        "button_url": campaign.button_url,
+                        "reward_choice": reward_choice.name if reward_choice else "",
+                        "profession": profession.name if profession else "",
+                        "campaign_type": campaign_type.name if campaign_type else "",
+                        "campaign_channels": campaign_channels,
+                        "campaign_outlets": campaign_outlets
+                    }
                 }, status=status.HTTP_201_CREATED)
 
         except Exception as e:
-                return Response({"status": False, "message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                    return Response({"status": False, "message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-        return Response({"status": False, "message": "Invalid data", "data": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+        # return Response({"status": False, "message": "Invalid data", "data": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
 
     # def process_images(self, bg_image, logo_image):
@@ -519,7 +552,7 @@ class CampaignListCreateView(generics.ListCreateAPIView):
         for outlet in campaign.outlets.all():
             outlet_customers = Customer.objects.all().distinct()
             customers.update(outlet_customers)
-            print(f"Customers from outlet {outlet.id}: {outlet_customers}")
+            # print(f"Customers from outlet {outlet.id}: {outlet_customers}")
 
         # ✅ Send messages based on campaign channels
         for customer in customers:
@@ -539,7 +572,7 @@ class CampaignListCreateView(generics.ListCreateAPIView):
 
 class CampaignRetrieveUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
     """API to retrieve, update, or delete a campaign"""
-
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
     serializer_class = CampaignSerializer
     permission_classes = [IsAuthenticated]
     lookup_field = "pk"
@@ -548,40 +581,66 @@ class CampaignRetrieveUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
         return Campaign.objects.filter(is_deleted=False)
 
     def retrieve(self, request, *args, **kwargs):
-        """Return a single campaign"""
-        instance = self.get_object()
-        serializer = self.get_serializer(instance)
-        return Response({
-            "status": True,
-            "message": "Campaign retrieved successfully",
-            "data": serializer.data
-        }, status=status.HTTP_200_OK)
-
-    def update(self, request, *args, **kwargs):
-        """Update campaign details"""
-        instance = self.get_object()
-        serializer = self.get_serializer(instance, data=request.data, partial=True)
-
-        if serializer.is_valid():
-            serializer.save()
+        """Return a single campaign with complete response"""
+        try:
+            instance = self.get_object()
+            serializer = self.get_serializer(instance)
             return Response({
                 "status": True,
-                "message": "Campaign updated successfully",
+                "message": "Campaign retrieved successfully",
                 "data": serializer.data
             }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({
+                "status": False,
+                "message": f"Error retrieving campaign: {str(e)}",
+                "data": None
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-        return Response({"status": False, "message": "Invalid data", "data": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+    def update(self, request, *args, **kwargs):
+        """Update campaign details and return complete response"""
+        try:
+            instance = self.get_object()
+            serializer = self.get_serializer(instance, data=request.data, partial=True)
+
+            if serializer.is_valid():
+                serializer.save()
+                return Response({
+                    "status": True,
+                    "message": "Campaign updated successfully",
+                    "data": serializer.data  # ✅ Returning complete updated response
+                }, status=status.HTTP_200_OK)
+
+            return Response({
+                "status": False,
+                "message": "Invalid data provided",
+                "errors": serializer.errors
+            }, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({
+                "status": False,
+                "message": f"Error updating campaign: {str(e)}",
+                "data": None
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def destroy(self, request, *args, **kwargs):
-        """Soft delete a campaign"""
-        instance = self.get_object()
-        instance.is_deleted = True
-        instance.save()
-        return Response({
-            "status": True,
-            "message": "Campaign deleted successfully",
-            "data": []
-        }, status=status.HTTP_200_OK)
+        """Soft delete a campaign and return full response"""
+        try:
+            instance = self.get_object()
+            instance.is_deleted = True
+            instance.save()
+            serializer = self.get_serializer(instance)  # ✅ Return deleted campaign data
+            return Response({
+                "status": True,
+                "message": "Campaign deleted successfully",
+                "data": serializer.data  # ✅ Returning full campaign details after deletion
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({
+                "status": False,
+                "message": f"Error deleting campaign: {str(e)}",
+                "data": None
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 

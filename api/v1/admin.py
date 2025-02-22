@@ -92,12 +92,12 @@ class ChannelAdmin(admin.ModelAdmin):
 
 @admin.register(Campaign)
 class CampaignAdmin(admin.ModelAdmin):
-    list_display = ("name", "user_profile", "expiry_date", "is_deleted", "created_on")
+    list_display = ("id","name", "user_profile", "expiry_date", "is_deleted", "created_on")
     list_filter = ("expiry_date", "is_deleted", "channels", "campaign_type")
     search_fields = ("name", "message", "user_profile__user__username")
     ordering = ("-created_on",)
     filter_horizontal = ("channels", "outlets")
-    readonly_fields = ("created_on", "updated_on")
+    readonly_fields = ("created_on", "updated_on", "image_url")
 
     fieldsets = (
         ("Basic Information", {
@@ -107,7 +107,7 @@ class CampaignAdmin(admin.ModelAdmin):
             "fields": ("channels", "campaign_type", "reward_choice", "profession", "outlets", "reward_choice_text")
         }),
         ("Media", {
-            "fields": ("logo", "bg_image")
+            "fields": ("logo", "bg_image", "image_url")
         }),
         ("System Information", {
             "fields": ("is_deleted", "created_on", "updated_on")
