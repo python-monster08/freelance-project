@@ -1,12 +1,35 @@
 from rest_framework import serializers
 from api.v1.models import *
 
+# class CampaignSerializer(serializers.ModelSerializer):
+#     """Serializer for Campaign model"""
+
+#     class Meta:
+#         model = Campaign
+#         fields = "__all__"
+
+
 class CampaignSerializer(serializers.ModelSerializer):
-    """Serializer for Campaign model"""
+    """Serializer for the Campaign model"""
+
+    campaign_channel = serializers.ListField(child=serializers.IntegerField(), write_only=True)
+    campaign_outlets = serializers.ListField(child=serializers.CharField(), write_only=True)
+    campaign_reward_choice_text = serializers.CharField(write_only=True, required=False)
+    campaign_message = serializers.CharField(write_only=True, required=False)
+    campaign_expiry_date = serializers.DateField(write_only=True, required=False)
+    button_url = serializers.URLField(write_only=True, required=False)
+
+    campaign_logo = serializers.ImageField(write_only=True, required=True)  # ✅ File field
+    campaign_bg_image = serializers.ImageField(write_only=True, required=True)  # ✅ File field
 
     class Meta:
         model = Campaign
-        fields = "__all__"
+        fields = [
+            "id", "name", "campaign_reward_choice_text", "campaign_message",
+            "campaign_expiry_date", "button_url", "reward_choice", "profession", "campaign_type",
+            "campaign_channel", "campaign_outlets", "campaign_logo", "campaign_bg_image", "image_url"
+        ]
+
 
 # class CampaignSerializer(serializers.ModelSerializer):
 #     """Serializer for Campaign model"""

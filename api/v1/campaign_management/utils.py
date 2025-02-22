@@ -2,11 +2,12 @@ import requests
 from django.core.mail import send_mail
 from django.conf import settings
 from twilio.rest import Client
+from msme_marketing_analytics.settings import TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER
 
-
-TWILIO_ACCOUNT_SID = "AC46201cb5e437e25c9267d447cc724543"
-TWILIO_AUTH_TOKEN = "7e1a911b5a672e46501f70a032f068ec"
-TWILIO_PHONE_NUMBER = "+14155238886"  # Your Twilio phone number
+print(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER)
+# TWILIO_ACCOUNT_SID = "AC46201cb5e437e25c9267d447cc724543"
+# TWILIO_AUTH_TOKEN = "7e1a911b5a672e46501f70a032f068ec"
+# TWILIO_PHONE_NUMBER = "+14155238886"  # Your Twilio phone number
 
 # Twilio Client
 twilio_client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
@@ -40,21 +41,16 @@ def send_whatsapp_message(phone_number, message, image_url, button_url):
     """Send WhatsApp message to a customer using Twilio."""
     if not phone_number.startswith("+"):
         phone_number = f"+91{phone_number}"  # Add country code if needed
-        print(phone_number, "88888888888888888")
 
     try:
-        print(phone_number, "777777777777777")
-
         # Append button URL to message
         message = f"{message}\n\n🔗 Visit Now: {button_url}"
-
         response = twilio_client.messages.create(
             body=message,
-            from_="whatsapp:+14155238886",
+            from_=TWILIO_PHONE_NUMBER,
             to=f"whatsapp:{phone_number}",
             media_url=[image_url],
         )
-        print(response)
         print(f"WhatsApp sent to {phone_number}! SID: {response.sid}")
     except Exception as e:
         print(f"Error sending WhatsApp to {phone_number}: {e}")

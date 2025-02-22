@@ -60,8 +60,8 @@ class UserMaster(AbstractUser):
 
     objects = UserManager()  # Attach custom manager
 
-    def __str__(self):
-        return f"{self.username} - {self.role}"
+    # def __str__(self):
+    #     return f"{self.username} - {self.role}"
 
     class Meta:
         db_table = "user_master"
@@ -89,8 +89,8 @@ class UserProfile(models.Model):
     updated_on = models.DateTimeField(auto_now=True)
     is_deleted = models.BooleanField(default=False)
 
-    def __str__(self):
-        return f"{self.user.username}'s MSME"
+    # def __str__(self):
+    #     return f"{self.user.username}'s MSME"
     class Meta:
         db_table = "user_profile"
         verbose_name = "User Profile"
@@ -117,8 +117,8 @@ class Outlet(models.Model):
     created_on = models.DateTimeField(auto_now_add=True, blank=True,null=True)
     updated_on = models.DateTimeField(auto_now=True)
 
-    def __str__(self):
-        return f"{self.name} - {self.city}, {self.state} ({self.user_profile.user.username})"
+    # def __str__(self):
+    #     return f"{self.name} - {self.city}, {self.state} ({self.user_profile.user.username})"
     class Meta:
         db_table = "outlet"
         verbose_name = "Outlet"
@@ -147,8 +147,8 @@ class Customer(models.Model):
     anniversary_date = models.DateField(null=True, blank=True)
     city = models.CharField(max_length=100)
 
-    def __str__(self):
-        return f"{self.first_name} {self.last_name}"
+    # def __str__(self):
+    #     return f"{self.first_name} {self.last_name}"
 
     class Meta:
         db_table = "customer"
@@ -204,8 +204,8 @@ class CustomerFeedback(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
 
-    def __str__(self):
-        return f"Feedback from {self.first_name} {self.last_name} - {self.overall_experience}/5"
+    # def __str__(self):
+    #     return f"Feedback from {self.first_name} {self.last_name} - {self.overall_experience}/5"
 
     class Meta:
         db_table = "customer_feedback"
@@ -254,8 +254,8 @@ class Profession(models.Model):
     """Model for storing profession details"""
     name = models.CharField(max_length=100)
 
-    def __str__(self):
-        return self.name
+    # def __str__(self):
+    #     return self.name
 
     class Meta:
         db_table = "profession"
@@ -266,8 +266,8 @@ class RewardChoice(models.Model):
     """Model for storing reward choices"""
     name = models.CharField(max_length=100)
 
-    def __str__(self):
-        return self.name
+    # def __str__(self):
+    #     return self.name
 
     class Meta:
         db_table = "reward_choice"
@@ -279,8 +279,8 @@ class CampaignType(models.Model):
     """Model for storing campaign types"""
     name = models.CharField(max_length=100)
 
-    def __str__(self):
-        return self.name
+    # def __str__(self):
+    #     return self.name
 
     class Meta:
         db_table = "campaign_type"
@@ -293,8 +293,8 @@ class Channel(models.Model):
     id = models.IntegerField(primary_key=True)  # Storing integer values (1=WhatsApp, 2=Email, etc.)
     name = models.CharField(max_length=50, unique=True)
 
-    def __str__(self):
-        return self.name
+    # def __str__(self):
+    #     return self.name
 
     class Meta:
         db_table = "channel"
@@ -320,6 +320,7 @@ class Campaign(models.Model):
 
     logo = models.ImageField(upload_to="campaign_logos/", null=True, blank=True)
     bg_image = models.ImageField(upload_to="campaign_bg_images/", null=True, blank=True)
+    image_url = models.URLField(null=True, blank=True)
 
     created_on = models.DateTimeField(auto_now_add=True)
     updated_on = models.DateTimeField(auto_now=True)
@@ -330,9 +331,9 @@ class Campaign(models.Model):
         verbose_name = "Campaign"
         verbose_name_plural = "Campaigns"
 
-    def __str__(self):
-        """Return campaign name with channel names"""
-        return f"{self.name} - {', '.join([channel.name for channel in self.channels.all()])}"
+    # def __str__(self):
+    #     """Return campaign name with channel names"""
+    #     return f"{self.name} - {', '.join([channel.name for channel in self.channels.all()])}"
 
     def save(self, *args, **kwargs):
         """Rename uploaded images before saving"""
@@ -355,3 +356,17 @@ class Campaign(models.Model):
 
 
 
+{
+"campaign_channel":[1,2],   # 1 = WhatsApp, 2 = Email  Channel IDs
+"campaign_outlets": ["main-1", "sub-2", "sub-3"],  # main-1 = UserProfile ID 1, sub-2 & sub-3 = Outlet IDs 2, 3
+"reward_choice":1,  # RewardChoice ID
+"profession":1,   # Profession ID
+"campaign_type":1,  # CampaignType ID
+"campaign_name":'Birthday Celebrations', 
+"campaign_reward_choice_text":'20%',
+"campaign_message":'bla bla bla',
+"campaign_expiry_date":'2025-02-18',
+"button_url":'www.google.com',
+"campaign_bg_image":'cat.png',    # Background Image File field
+"campaign_logo":'rat.png'       # Logo Image File field
+}
