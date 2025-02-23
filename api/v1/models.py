@@ -86,6 +86,7 @@ class UserProfile(models.Model):
     zip_code = models.CharField(max_length=15, null=True, blank=True)  # Main branch zipcode
     state = models.CharField(max_length=100, null=True, blank=True)  # Main branch state
     gstin = models.CharField(max_length=15, null=True, blank=True)
+    pan_number = models.CharField(max_length=15, null=True, blank=True)
     updated_on = models.DateTimeField(auto_now=True)
     is_deleted = models.BooleanField(default=False)
 
@@ -356,20 +357,20 @@ class Campaign(models.Model):
 
 
 
-{
-"campaign_channel":[1,2],   
-"campaign_outlets": ["main-1", "sub-1"],
-"reward_choice":1,  
-"profession":1,
-"campaign_type":1,
-"name":'Spring Sale Campaign 2025', 
-"campaign_message":'Get 20% off on all items!',
-"campaign_reward_choice_text":'20%',
-"campaign_expiry_date":'2025-03-01',
-"button_url":'https://yourwebsite.com/offer',
-"campaign_bg_image":'cat.png',    
-"campaign_logo":'rat.png'      
-}
+# {
+# "campaign_channel":[1,2],   
+# "campaign_outlets": ["main-1", "sub-1"],
+# "reward_choice":1,  
+# "profession":1,
+# "campaign_type":1,
+# "name":'Spring Sale Campaign 2025', 
+# "campaign_message":'Get 20% off on all items!',
+# "campaign_reward_choice_text":'20%',
+# "campaign_expiry_date":'2025-03-01',
+# "button_url":'https://yourwebsite.com/offer',
+# "campaign_bg_image":'cat.png',    
+# "campaign_logo":'rat.png'      
+# }
 
 
 
@@ -385,3 +386,5 @@ class Campaign(models.Model):
 # campaign_outlets: ["main-1", "sub-1"]
 # campaign_logo: <Upload logo file>
 # campaign_bg_image: <Upload background image file>
+
+

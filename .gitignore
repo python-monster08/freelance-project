@@ -55,3 +55,5 @@ nginx-error.log
 nginx-access.log
 gunicorn-error.log
 gunicorn-access.log
+
+test.py
