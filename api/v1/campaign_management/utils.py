@@ -47,7 +47,7 @@ def send_whatsapp_message(phone_number, message, image_url, button_url):
         message = f"{message}\n\n🔗 Visit Now: {button_url}"
         response = twilio_client.messages.create(
             body=message,
-            from_=TWILIO_PHONE_NUMBER,
+            from_=f"whatsapp:{TWILIO_PHONE_NUMBER}",
             to=f"whatsapp:{phone_number}",
             media_url=[image_url],
         )
@@ -131,7 +131,7 @@ def send_sms_message(phone_number, message):
     try:
         response = twilio_client.messages.create(
             body=message,
-            from_="+18777804236",
+            from_=TWILIO_PHONE_NUMBER,
             to=phone_number,
         )
         print(f"SMS sent to {phone_number}! SID: {response.sid}")
