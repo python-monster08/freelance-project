@@ -47,7 +47,7 @@ def send_whatsapp_message(phone_number, message, image_url, button_url):
         message = f"{message}\n\n🔗 Visit Now: {button_url}"
         response = twilio_client.messages.create(
             body=message,
-            from_=TWILIO_PHONE_NUMBER,
+            from_="whatsapp:+14155238886",
             to=f"whatsapp:{phone_number}",
             media_url=[image_url],
         )

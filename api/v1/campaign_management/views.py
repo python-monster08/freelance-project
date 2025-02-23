@@ -414,7 +414,6 @@ class CampaignListCreateView(generics.ListCreateAPIView):
                     logo=logo_image,
                     image_url=image_url
                 )
-                print("logo_image",campaign.logo)
                 # ✅ Assign Many-to-Many relations
                 campaign.channels.set(Channel.objects.filter(id__in=campaign_channels))
                 campaign.outlets.set(outlets)
@@ -445,31 +444,6 @@ class CampaignListCreateView(generics.ListCreateAPIView):
         # return Response({"status": False, "message": "Invalid data", "data": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
 
-    # def process_images(self, bg_image, logo_image):
-    #     """Overlay the logo on the background image and return as base64."""
-    #     try:
-    #         bg_image_pil = Image.open(bg_image).convert("RGBA")
-    #         logo_image_pil = Image.open(logo_image).convert("RGBA")
-
-    #         # Resize logo proportionally
-    #         max_logo_size = min(bg_image_pil.width // 3, bg_image_pil.height // 3)
-    #         logo_image_pil.thumbnail((max_logo_size, max_logo_size), Image.LANCZOS)
-
-    #         # Position logo at center-bottom
-    #         position = (
-    #             (bg_image_pil.width - logo_image_pil.width) // 2,
-    #             bg_image_pil.height - logo_image_pil.height - 20
-    #         )
-    #         bg_image_pil.paste(logo_image_pil, position, logo_image_pil)
-
-    #         # Convert to base64
-    #         buffered = BytesIO()
-    #         bg_image_pil.save(buffered, format="PNG")
-    #         return base64.b64encode(buffered.getvalue()).decode("utf-8")
-
-    #     except Exception as e:
-    #         raise ValueError(f"Image processing error: {e}")
-
     def process_images(self, bg_image, logo_image):
         """Overlay the logo on the background image and return as base64."""
         try:
@@ -495,21 +469,6 @@ class CampaignListCreateView(generics.ListCreateAPIView):
 
         except Exception as e:
             raise ValueError(f"Image processing error: {e}")
-
-    # def upload_image_to_imgbb(self, image_data):
-    #     """Upload image to ImgBB and return URL."""
-    #     if not hasattr(settings, "IMGBB_API_KEY") or not settings.IMGBB_API_KEY:
-    #         raise ValueError("IMGBB API Key is missing in settings.")
-
-    #     url = "https://api.imgbb.com/1/upload"
-    #     payload = {"key": settings.IMGBB_API_KEY, "image": image_data}
-        
-    #     try:
-    #         response = requests.post(url, data=payload)
-    #         response.raise_for_status()  # Raises HTTPError if status is not 200
-    #         return response.json().get("data", {}).get("url")
-    #     except requests.RequestException as e:
-    #         raise ValueError(f"Failed to upload image to ImgBB: {e}")
         
     def upload_image_to_imgbb(self, image_data):
         """Upload image to ImgBB and return URL."""
@@ -523,26 +482,7 @@ class CampaignListCreateView(generics.ListCreateAPIView):
             return response.json()["data"]["url"]
         return None
 
-    # def send_campaign_messages(self, campaign):
-    #     """Send WhatsApp, Email, and SMS messages to customers."""
-    #     customers = set()  # Use a set to avoid duplicate customers
-
-    #     for outlet in campaign.outlets.all():
-    #         customers.update(outlet.feedbacks.all())
-    #         print("Customers from outlet", outlet.id, ":", outlet.feedbacks.all())
-
-    #     for customer in customers:
-    #         for channel in campaign.channels.all():
-    #             print("Sending message via channel:", channel)
-    #             if channel.id == 1:  # WhatsApp
-    #                 send_whatsapp_message(customer.phone_number, campaign.message, campaign.image_url, campaign.button_url)
-    #                 print("WhatsApp sent to", customer.phone_number)
-    #             elif channel.id == 2:  # Email
-    #                 send_email_message(customer.email, campaign.message, campaign.image_url, campaign.button_url)
-    #                 print("Email sent to", customer.email)
-    #             elif channel.id == 3:  # SMS
-    #                 send_sms_message(customer.phone_number, campaign.message)
-
+    
     def send_campaign_messages(self, campaign):
         """Send WhatsApp, Email, and SMS messages to customers."""
         
