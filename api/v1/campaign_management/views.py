@@ -16,7 +16,7 @@ import base64
 import requests
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
-
+import json
 
 class CampaignListCreateView(generics.ListCreateAPIView):
     """API to list all campaigns or create a new campaign"""
@@ -81,18 +81,31 @@ class CampaignListCreateView(generics.ListCreateAPIView):
 
                 # ✅ Extract and convert channel IDs from request (Fix applied)
                 # campaign_channels = list(map(int, request.data.get("campaign_channel", "").split(","))) if request.data.get("campaign_channel") else []
+                
                 campaign_channel_data = request.data.get("campaign_channel")
 
-                if isinstance(campaign_channel_data, str):  # If comma-separated string
-                    campaign_channels = list(map(int, campaign_channel_data.split(",")))
-                elif isinstance(campaign_channel_data, list):  # If list format
-                    campaign_channels = list(map(int, campaign_channel_data))
-                else:
-                    campaign_channels = []  # Default empty list if no valid input
+                campaign_channels = []  # Default empty list
 
+                if isinstance(campaign_channel_data, list):  
+                    # Already a list, ensure all elements are integers
+                    campaign_channels = list(map(int, campaign_channel_data))
+
+                elif isinstance(campaign_channel_data, str):  
+                    try:
+                        # Try parsing as JSON list
+                        parsed_data = json.loads(campaign_channel_data)
+                        if isinstance(parsed_data, list):
+                            campaign_channels = list(map(int, parsed_data))
+                        else:
+                            # If JSON decoding didn't return a list, try comma-separated parsing
+                            campaign_channels = list(map(int, campaign_channel_data.split(",")))
+                    except json.JSONDecodeError:
+                        # If JSON parsing fails, assume it's a comma-separated string
+                        campaign_channels = list(map(int, campaign_channel_data.split(",")))
+
+                # print("Final campaign_channels:", campaign_channels, type(campaign_channels))
                 # print(campaign_channels, type(campaign_channels), "campaign_channels")
                 # ✅ Extract and convert outlet IDs properly (Fix applied)
-                import json
                 campaign_outlets = json.loads(request.data.get("campaign_outlets", "[]"))
 
                 user_profiles, outlets = [], []
@@ -150,7 +163,7 @@ class CampaignListCreateView(generics.ListCreateAPIView):
                 campaign.outlets.set(outlets)
 
                 # ✅ Send campaign messages
-                self.send_campaign_messages(campaign)
+                self.send_campaign_messages(campaign,request)
 
                 return Response({
                     "status": True,
@@ -213,20 +226,39 @@ class CampaignListCreateView(generics.ListCreateAPIView):
             return response.json()["data"]["url"]
         return None
 
-    
-    def send_campaign_messages(self, campaign):
-        """Send WhatsApp, Email, and SMS messages to customers."""
-        
-        customers = set()  # Use a set to avoid duplicate customers
+    def send_campaign_messages(self, campaign, request):
+        """Send WhatsApp, Email, and SMS messages to customers related to the logged-in user profile or outlet."""
 
-        # ✅ Fetch unique customers from campaign outlets
-        for outlet in campaign.outlets.all():
-            outlet_customers = Customer.objects.all().distinct()
+        user = request.user  # ✅ Get the logged-in user
+        print(user, "user")
+        customers = set()  # ✅ Use a set to avoid duplicate customers
+
+        # ✅ Fetch user profile
+        user_profile = UserProfile.objects.filter(user=user).first()
+        print(user_profile, "user_profile")
+
+        if not user_profile:
+            print("User profile not found.")
+            return
+        print(user.role, "Role")
+        # ✅ Get outlets associated with the user
+        if user.role == "super_admin":
+            # Super Admin can access all outlets in the campaign
+            campaign_outlets = campaign.outlets.all()
+            print("campaign_outlets All", campaign_outlets)
+        else:
+            # Admin/Executive can only access their own outlets
+            campaign_outlets = campaign.outlets.filter(user_profile=user_profile)
+            print("campaign_outlets by User", campaign_outlets)
+
+        # ✅ Fetch customers from MSME (UserProfile) linked to outlets
+        for outlet in campaign_outlets:
+            outlet_customers = Customer.objects.filter(msme=outlet.user_profile).distinct()
             customers.update(outlet_customers)
-            # print(f"Customers from outlet {outlet.id}: {outlet_customers}")
 
         # ✅ Send messages based on campaign channels
         for customer in customers:
+            print("Customer", customer.first_name)
             for channel in campaign.channels.all():
 
                 # ✅ Send WhatsApp Message
@@ -240,6 +272,35 @@ class CampaignListCreateView(generics.ListCreateAPIView):
                 # ✅ Send SMS
                 elif channel.id == 3 and customer.whatsapp_number:
                     send_sms_message(customer.whatsapp_number, campaign.message)
+
+        print(f"✅ Campaign messages sent successfully by {user.username}.")
+
+    # def send_campaign_messages(self, campaign):
+    #     """Send WhatsApp, Email, and SMS messages to customers."""
+        
+    #     customers = set()  # Use a set to avoid duplicate customers
+
+    #     # ✅ Fetch unique customers from campaign outlets
+    #     for outlet in campaign.outlets.all():
+    #         outlet_customers = Customer.objects.all().distinct()
+    #         customers.update(outlet_customers)
+    #         # print(f"Customers from outlet {outlet.id}: {outlet_customers}")
+
+    #     # ✅ Send messages based on campaign channels
+    #     for customer in customers:
+    #         for channel in campaign.channels.all():
+
+    #             # ✅ Send WhatsApp Message
+    #             if channel.id == 1 and customer.whatsapp_number:
+    #                 send_whatsapp_message(customer.whatsapp_number, campaign.message, campaign.image_url, campaign.button_url)
+
+    #             # ✅ Send Email
+    #             elif channel.id == 2 and customer.email:
+    #                 send_email_message(customer.email, campaign.message, campaign.image_url, campaign.button_url)
+
+    #             # ✅ Send SMS
+    #             elif channel.id == 3 and customer.whatsapp_number:
+    #                 send_sms_message(customer.whatsapp_number, campaign.message)
 
 class CampaignRetrieveUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
     """API to retrieve, update, or delete a campaign"""

@@ -9,8 +9,8 @@ class UserMasterAdmin(UserAdmin):
     list_filter = ("role", "is_active", "is_staff", "is_superuser")
     ordering = ("id", "email", "role")
     
-    fieldsets = (
-        (None, {"fields": ("email", "username", "phone_number", "password")}),
+    fieldsets = (           
+        (None, {"fields": ("email", "username", "phone_number", "password", "role")}),
         (_("Personal Info"), {"fields": ("first_name", "last_name")}),
         (_("Social Accounts"), {"fields": ("social_account_id", "social_account_provider")}),
         (_("Permissions"), {"fields": ("is_active", "is_deleted", "is_staff", "is_superuser", "groups", "user_permissions")}),

@@ -371,46 +371,171 @@ class UserProfileView(generics.RetrieveUpdateAPIView):
 #         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+# class CustomerCreateView(APIView):
+#     """API to add a single customer via form submission"""
+
+#     def post(self, request):
+#         serializer = AddSingleCustomerSerializer(data=request.data)
+#         if serializer.is_valid():
+#             serializer.save()
+#             return Response({"status": True, "message": "Customer created successfully!", "data": serializer.data}, status=status.HTTP_201_CREATED)
+        
+#         return Response({"status": False, "error": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+# class CustomerUploadView(APIView):
+#     """API to upload customer data via an Excel or CSV file"""
+    
+#     parser_classes = (MultiPartParser, FormParser)
+
+#     def post(self, request):
+#         file = request.FILES.get('file')
+#         if not file:
+#             return Response({"status":False, "error": "No file uploaded!"}, status=status.HTTP_400_BAD_REQUEST)
+
+#         try:
+#             # Determine the file type based on the extension
+#             file_extension = file.name.split('.')[-1].lower()
+#             if file_extension == 'xlsx' or file_extension == 'xls':
+#                 df = pd.read_excel(file)
+#             elif file_extension == 'csv':
+#                 df = pd.read_csv(file)
+#             else:
+#                 return Response({"status":False, "error": "Unsupported file format. Please upload an Excel or CSV file."}, status=status.HTTP_400_BAD_REQUEST)
+
+#             # Ensure required columns exist in the DataFrame
+#             required_columns = {"first_name", "last_name", "email", "whatsapp_number", "gender", "dob", "anniversary_date", "city"}
+#             if not required_columns.issubset(set(df.columns)):
+#                 return Response({"status":False, "error": f"Missing required columns. Required: {required_columns}"}, status=status.HTTP_400_BAD_REQUEST)
+
+#             customers = []
+#             for _, row in df.iterrows():
+#                 try:
+#                     customer = Customer(
+#                         first_name=row["first_name"],
+#                         last_name=row["last_name"],
+#                         email=row["email"],
+#                         whatsapp_number=row["whatsapp_number"],
+#                         gender=row["gender"],
+#                         dob=row["dob"] if pd.notna(row["dob"]) else None,
+#                         anniversary_date=row["anniversary_date"] if pd.notna(row["anniversary_date"]) else None,
+#                         city=row["city"]
+#                     )
+#                     customer.full_clean()  # Validate fields
+#                     customers.append(customer)
+#                 except ValidationError as e:
+#                     return Response({"status":False, "error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+#             Customer.objects.bulk_create(customers)
+#             return Response({"status":True, "message": "Customers uploaded successfully!"}, status=status.HTTP_201_CREATED)
+ 
+#         except Exception as e:
+#             return Response({"status":False, "error": f"Invalid file format or data: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
+        
+
+# class CustomerCreateView(APIView):
+#     """API to add a single customer via form submission"""
+#     permission_classes = [IsAuthenticated]
+
+#     def post(self, request):
+#         request_data = request.data.copy()
+#         request_data["msme"] = request.user.id  # Assign logged-in MSME
+
+#         serializer = AddSingleCustomerSerializer(data=request_data)
+#         if serializer.is_valid():
+#             serializer.save()
+#             return Response(
+#                 {"status": True, "message": "Customer created successfully!", "data": serializer.data},
+#                 status=status.HTTP_201_CREATED,
+#             )
+
+#         return Response({"status": False, "error": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+# class CustomerCreateView(APIView):
+#     """API to add a single customer via form submission"""
+
+#     def post(self, request):
+#         user_profile = None  # Default to None if unauthenticated
+
+#         if request.user and request.user.is_authenticated:
+#             try:
+#                 user_profile = UserProfile.objects.get(user=request.user.id)  # Get the authenticated user's profile
+#             except UserProfile.DoesNotExist:
+#                 return Response({"status": False, "error": "User profile not found!"}, status=status.HTTP_400_BAD_REQUEST)
+#         serializer = AddSingleCustomerSerializer(data=request.data)
+#         if serializer.is_valid():
+#             serializer.save(msme=user_profile)  # Assign msme only if authenticated user exists
+#             return Response({"status": True, "message": "Customer created successfully!", "data": serializer.data}, status=status.HTTP_201_CREATED)
+
+#         return Response({"status": False, "error": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+
 class CustomerCreateView(APIView):
-    """API to add a single customer via form submission"""
+    """API to add single or multiple customers via form submission"""
 
     def post(self, request):
-        serializer = AddSingleCustomerSerializer(data=request.data)
+        user_profile = None  # Default to None if unauthenticated
+
+        if request.user and request.user.is_authenticated:
+            try:
+                user_profile = UserProfile.objects.get(user=request.user.id)  # Get the authenticated user's profile
+            except UserProfile.DoesNotExist:
+                return Response({"status": False, "error": "User profile not found!"}, status=status.HTTP_400_BAD_REQUEST)
+
+        data = request.data
+
+        # ✅ Check if data is a list (multiple customers)
+        if isinstance(data, list):
+            serializer = AddSingleCustomerSerializer(data=data, many=True)  # `many=True` for bulk
+        else:
+            serializer = AddSingleCustomerSerializer(data=data)  # Single object
+
         if serializer.is_valid():
-            serializer.save()
-            return Response({"status": True, "message": "Customer created successfully!", "data": serializer.data}, status=status.HTTP_201_CREATED)
-        
+            customers = serializer.save(msme=user_profile)  # Save and assign MSME to all customers
+            
+            # ✅ Return appropriate response for multiple/single customers
+            if isinstance(customers, list):  
+                return Response({"status": True, "message": "Customers created successfully!", "data": serializer.data}, status=status.HTTP_201_CREATED)
+            else:
+                return Response({"status": True, "message": "Customer created successfully!", "data": serializer.data}, status=status.HTTP_201_CREATED)
+
         return Response({"status": False, "error": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
 
 class CustomerUploadView(APIView):
     """API to upload customer data via an Excel or CSV file"""
     
+    permission_classes = [IsAuthenticated]
     parser_classes = (MultiPartParser, FormParser)
 
     def post(self, request):
-        file = request.FILES.get('file')
+        file = request.FILES.get("file")
         if not file:
-            return Response({"status":False, "error": "No file uploaded!"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"status": False, "error": "No file uploaded!"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            # Determine the file type based on the extension
-            file_extension = file.name.split('.')[-1].lower()
-            if file_extension == 'xlsx' or file_extension == 'xls':
+            file_extension = file.name.split(".")[-1].lower()
+            if file_extension in ["xlsx", "xls"]:
                 df = pd.read_excel(file)
-            elif file_extension == 'csv':
+            elif file_extension == "csv":
                 df = pd.read_csv(file)
             else:
-                return Response({"status":False, "error": "Unsupported file format. Please upload an Excel or CSV file."}, status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    {"status": False, "error": "Unsupported file format. Please upload an Excel or CSV file."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
-            # Ensure required columns exist in the DataFrame
             required_columns = {"first_name", "last_name", "email", "whatsapp_number", "gender", "dob", "anniversary_date", "city"}
             if not required_columns.issubset(set(df.columns)):
-                return Response({"status":False, "error": f"Missing required columns. Required: {required_columns}"}, status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    {"status": False, "error": f"Missing required columns. Required: {required_columns}"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
             customers = []
             for _, row in df.iterrows():
                 try:
                     customer = Customer(
+                        msme=UserProfile.objects.get(user=request.user.id),  # Assign logged-in MSME
                         first_name=row["first_name"],
                         last_name=row["last_name"],
                         email=row["email"],
@@ -418,19 +543,20 @@ class CustomerUploadView(APIView):
                         gender=row["gender"],
                         dob=row["dob"] if pd.notna(row["dob"]) else None,
                         anniversary_date=row["anniversary_date"] if pd.notna(row["anniversary_date"]) else None,
-                        city=row["city"]
+                        city=row["city"],
                     )
                     customer.full_clean()  # Validate fields
                     customers.append(customer)
                 except ValidationError as e:
-                    return Response({"status":False, "error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+                    return Response({"status": False, "error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
             Customer.objects.bulk_create(customers)
-            return Response({"status":True, "message": "Customers uploaded successfully!"}, status=status.HTTP_201_CREATED)
- 
+            return Response({"status": True, "message": "Customers uploaded successfully!"}, status=status.HTTP_201_CREATED)
+
         except Exception as e:
-            return Response({"status":False, "error": f"Invalid file format or data: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
-        
+            return Response({"status": False, "error": f"Invalid file format or data: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
+
+
 
 
 # Custom Pagination Class
