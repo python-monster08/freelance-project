@@ -653,12 +653,13 @@ class CustomerFeedbackViewSet(ModelViewSet):
             feedback = serializer.save()
             return Response(
                 {
+                    "status": True,
                     "message": "Feedback submitted successfully",
                     "data": CustomerFeedbackListSerializer(feedback).data,
                 },
                 status=status.HTTP_201_CREATED,
             )
-        return Response({"message": "Validation failed", "errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"status": False, "message": str(serializer.errors)}, status=status.HTTP_400_BAD_REQUEST)
 
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop("partial", False)
@@ -669,14 +670,15 @@ class CustomerFeedbackViewSet(ModelViewSet):
             feedback = serializer.save()
             return Response(
                 {
+                    "status": True,
                     "message": "Feedback updated successfully",
                     "data": CustomerFeedbackListSerializer(feedback).data,
                 },
                 status=status.HTTP_200_OK,
             )
-        return Response({"message": "Validation failed", "errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"status": False, "message": str(serializer.errors)}, status=status.HTTP_400_BAD_REQUEST)
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         instance.delete()
-        return Response({"message": "Feedback deleted successfully"}, status=status.HTTP_204_NO_CONTENT)
+        return Response({"status": True, "message": "Feedback deleted successfully"}, status=status.HTTP_204_NO_CONTENT)
