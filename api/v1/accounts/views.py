@@ -646,6 +646,18 @@ class CustomerFeedbackViewSet(ModelViewSet):
         elif self.action in ["update", "partial_update"]:
             return CustomerFeedbackUpdateSerializer
         return CustomerFeedbackListSerializer
+    
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(
+            {
+                "status": True,
+                "message": "Feedback list fetched successfully",
+                "data": serializer.data
+            },
+            status=status.HTTP_200_OK
+        )
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
