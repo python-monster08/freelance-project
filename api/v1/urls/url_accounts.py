@@ -1,6 +1,10 @@
-from django.urls import path
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
 from api.v1.accounts.views import *
 
+# Create a router and register our viewset with it.
+router = DefaultRouter()
+router.register(r'customer-feedback', CustomerFeedbackViewSet, basename='customer-feedback')
 
 
 urlpatterns = [
@@ -17,4 +21,5 @@ urlpatterns = [
     path('upload_customers/', CustomerUploadView.as_view(), name='upload-customers'),  # API to upload customers via Excel
     path('customers/', CustomerListView.as_view(), name='customer-list'),
     path('customers/<int:pk>/', CustomerRetrieveView.as_view(), name='customer-detail'),
+    path('', include(router.urls)),  # Includes all ViewSet routes
 ]

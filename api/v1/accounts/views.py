@@ -632,3 +632,51 @@ class CustomerRetrieveView(generics.RetrieveAPIView):
             "data": serializer.data
         }, status=status.HTTP_200_OK)
 
+
+
+class CustomerFeedbackViewSet(ModelViewSet):
+    queryset = CustomerFeedback.objects.all().order_by("-created_at")
+    permission_classes = [AllowAny]
+
+    def get_serializer_class(self):
+        if self.action == "list":
+            return CustomerFeedbackListSerializer
+        elif self.action == "create":
+            return CustomerFeedbackCreateSerializer
+        elif self.action in ["update", "partial_update"]:
+            return CustomerFeedbackUpdateSerializer
+        return CustomerFeedbackListSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            feedback = serializer.save()
+            return Response(
+                {
+                    "message": "Feedback submitted successfully",
+                    "data": CustomerFeedbackListSerializer(feedback).data,
+                },
+                status=status.HTTP_201_CREATED,
+            )
+        return Response({"message": "Validation failed", "errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop("partial", False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        
+        if serializer.is_valid():
+            feedback = serializer.save()
+            return Response(
+                {
+                    "message": "Feedback updated successfully",
+                    "data": CustomerFeedbackListSerializer(feedback).data,
+                },
+                status=status.HTTP_200_OK,
+            )
+        return Response({"message": "Validation failed", "errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        instance.delete()
+        return Response({"message": "Feedback deleted successfully"}, status=status.HTTP_204_NO_CONTENT)

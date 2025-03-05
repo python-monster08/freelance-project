@@ -103,3 +103,54 @@ class AddSingleCustomerSerializer(serializers.ModelSerializer):
         if "anniversary_date" in data and data["anniversary_date"] == "":
             data["anniversary_date"] = None
         return super().to_internal_value(data)
+
+
+
+
+# Serializer for listing feedback
+class CustomerFeedbackListSerializer(serializers.ModelSerializer):
+    customer_name = serializers.SerializerMethodField()
+    outlet_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CustomerFeedback
+        fields = [
+            "id",
+            "customer_name",
+            "outlet_name",
+            "overall_experience",
+            "service_quality_rating",
+            "item_quality_rating",
+            "value_for_money",
+            "would_recommend",
+            "likelihood_to_return",
+            "emotions",
+            "created_at",
+        ]
+
+    def get_customer_name(self, obj):
+        return f"{obj.first_name} {obj.last_name}"
+
+    def get_outlet_name(self, obj):
+        return obj.outlet.name
+
+# Serializer for creating feedback
+class CustomerFeedbackCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomerFeedback
+        fields = "__all__"
+
+# Serializer for updating feedback
+class CustomerFeedbackUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomerFeedback
+        fields = [
+            "overall_experience",
+            "service_quality_rating",
+            "item_quality_rating",
+            "value_for_money",
+            "would_recommend",
+            "likelihood_to_return",
+            "emotions",
+            "suggestions",
+        ]
