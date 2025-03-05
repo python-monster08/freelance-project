@@ -44,9 +44,6 @@ class UserLoginSerializer(serializers.Serializer):
         return attrs
 
 
-
-
-
 class OutletSerializer(serializers.ModelSerializer):
     """Serializer for Outlet model"""
     

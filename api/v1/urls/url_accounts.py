@@ -13,6 +13,7 @@ urlpatterns = [
     # path('outlets/', OutletListCreateView.as_view(), name='outlet_list_create'),  # List and create outlets
     # path('outlets/<int:pk>/', OutletDetailView.as_view(), name='outlet_detail'),  # Retrieve, update, delete a specific outlet
     path('add_customer/', CustomerCreateView.as_view(), name='add-customer'),  # API to add a single customer
+    path('update_delete_customer/<int:pk>/', CustomerCreateView.as_view(), name='customer-update-delete'),
     path('upload_customers/', CustomerUploadView.as_view(), name='upload-customers'),  # API to upload customers via Excel
     path('customers/', CustomerListView.as_view(), name='customer-list'),
     path('customers/<int:pk>/', CustomerRetrieveView.as_view(), name='customer-detail'),

@@ -45,6 +45,7 @@ class UserMaster(AbstractUser):
     social_account_provider = models.CharField(max_length=50, blank=True, null=True)
     is_active = models.BooleanField(default=False)
     is_deleted = models.BooleanField(default=False)
+    is_profile_update = models.BooleanField(default=False)
     created_on = models.DateTimeField(auto_now_add=True, blank=True,null=True)
     updated_on = models.DateTimeField(auto_now=True)
 

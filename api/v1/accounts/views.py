@@ -82,17 +82,18 @@ class UserLoginView(generics.GenericAPIView):
             # Get token expiry times
             access_token_lifetime = settings.SIMPLE_JWT['ACCESS_TOKEN_LIFETIME']
             refresh_token_lifetime = settings.SIMPLE_JWT['REFRESH_TOKEN_LIFETIME']
-
-            access_token_expiry = datetime.utcnow() + access_token_lifetime
-            refresh_token_expiry = datetime.utcnow() + refresh_token_lifetime
+            is_profile_update = user.is_profile_update
+            access_token_expiry = datetime.now() + access_token_lifetime
+            refresh_token_expiry = datetime.now() + refresh_token_lifetime
 
             return Response({
                 "status": True,
                 "message": "Login successful",
-                "refresh": str(refresh),
-                "refresh_expires_at": refresh_token_expiry.strftime("%Y-%m-%d %H:%M:%S UTC"),
+                "is_profile_updated": is_profile_update,
                 "access": str(access_token),
-                "access_expires_at": access_token_expiry.strftime("%Y-%m-%d %H:%M:%S UTC")
+                "access_expires_at": access_token_expiry.strftime("%Y-%m-%d %H:%M:%S UTC"),
+                "refresh": str(refresh),
+                "refresh_expires_at": refresh_token_expiry.strftime("%Y-%m-%d %H:%M:%S UTC")
             })
 
         except Exception as e:
@@ -264,8 +265,6 @@ class OutletDetailView(generics.RetrieveUpdateDestroyAPIView):
                 "message": str(e)
             }, status=status.HTTP_400_BAD_REQUEST)
 
-
-
 class UserProfileView(generics.RetrieveUpdateAPIView):
     serializer_class = UserProfileSerializer
     permission_classes = [IsAuthenticated]
@@ -314,6 +313,7 @@ class UserProfileView(generics.RetrieveUpdateAPIView):
             user.email = data.get("email", user.email)
             user.first_name = data.get("first_name", user.first_name)
             user.last_name = data.get("last_name", user.last_name)
+            user.is_profile_update = True  # Mark profile as complete
 
             # Password update logic
             if "old_password" in data and "new_password" in data:
@@ -357,8 +357,6 @@ class UserProfileView(generics.RetrieveUpdateAPIView):
                 "status": False,
                 "message": str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
 
 # class CustomerCreateView(APIView):
 #     """ API to add a single customer via form submission """
@@ -470,35 +468,58 @@ class UserProfileView(generics.RetrieveUpdateAPIView):
 
 
 class CustomerCreateView(APIView):
-    """API to add single or multiple customers via form submission"""
+    """API to add, update, and delete customers."""
 
     def post(self, request):
-        user_profile = None  # Default to None if unauthenticated
+        """Add single or multiple customers."""
+        user_profile = None
 
         if request.user and request.user.is_authenticated:
             try:
-                user_profile = UserProfile.objects.get(user=request.user.id)  # Get the authenticated user's profile
+                user_profile = UserProfile.objects.get(user=request.user.id)
             except UserProfile.DoesNotExist:
                 return Response({"status": False, "error": "User profile not found!"}, status=status.HTTP_400_BAD_REQUEST)
 
         data = request.data
-
-        # ✅ Check if data is a list (multiple customers)
+        
         if isinstance(data, list):
-            serializer = AddSingleCustomerSerializer(data=data, many=True)  # `many=True` for bulk
+            serializer = AddSingleCustomerSerializer(data=data, many=True)
         else:
-            serializer = AddSingleCustomerSerializer(data=data)  # Single object
+            serializer = AddSingleCustomerSerializer(data=data)
 
         if serializer.is_valid():
-            customers = serializer.save(msme=user_profile)  # Save and assign MSME to all customers
-            
-            # ✅ Return appropriate response for multiple/single customers
-            if isinstance(customers, list):  
-                return Response({"status": True, "message": "Customers created successfully!", "data": serializer.data}, status=status.HTTP_201_CREATED)
-            else:
-                return Response({"status": True, "message": "Customer created successfully!", "data": serializer.data}, status=status.HTTP_201_CREATED)
-
+            customers = serializer.save(msme=user_profile)
+            return Response({
+                "status": True,
+                "message": "Customers created successfully!" if isinstance(customers, list) else "Customer created successfully!",
+                "data": serializer.data
+            }, status=status.HTTP_201_CREATED)
+        
         return Response({"status": False, "error": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+    
+    def put(self, request, pk=None):
+        """Update an existing customer by ID."""
+        try:
+            customer = Customer.objects.get(pk=pk)
+        except Customer.DoesNotExist:
+            return Response({"status": False, "error": "Customer not found!"}, status=status.HTTP_404_NOT_FOUND)
+        
+        serializer = AddSingleCustomerSerializer(customer, data=request.data, partial=True)
+        
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"status": True, "message": "Customer updated successfully!", "data": serializer.data}, status=status.HTTP_200_OK)
+        
+        return Response({"status": False, "error": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+    
+    def delete(self, request, pk=None):
+        """Delete a customer by ID."""
+        try:
+            customer = Customer.objects.get(pk=pk)
+            customer.delete()
+            return Response({"status": True, "message": "Customer deleted successfully!"}, status=status.HTTP_200_OK)
+        except Customer.DoesNotExist:
+            return Response({"status": False, "error": "Customer not found!"}, status=status.HTTP_404_NOT_FOUND)
 
 
 class CustomerUploadView(APIView):

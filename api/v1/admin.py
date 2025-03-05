@@ -5,7 +5,7 @@ from .models import *
 
 class UserMasterAdmin(UserAdmin):
     model = UserMaster
-    list_display = ("id","email", "username", "phone_number", "role", "is_active", "is_staff")
+    list_display = ("id","email", "username", "phone_number", "role", "is_active", "is_staff", "is_profile_update")
     list_filter = ("role", "is_active", "is_staff", "is_superuser")
     ordering = ("id", "email", "role")
     
@@ -13,7 +13,7 @@ class UserMasterAdmin(UserAdmin):
         (None, {"fields": ("email", "username", "phone_number", "password", "role")}),
         (_("Personal Info"), {"fields": ("first_name", "last_name")}),
         (_("Social Accounts"), {"fields": ("social_account_id", "social_account_provider")}),
-        (_("Permissions"), {"fields": ("is_active", "is_deleted", "is_staff", "is_superuser", "groups", "user_permissions")}),
+        (_("Permissions"), {"fields": ("is_active", "is_deleted", "is_staff", "is_superuser", "is_profile_update", "groups", "user_permissions")}),
         (_("Important Dates"), {"fields": ("last_login", "date_joined")}),
     )
 
