@@ -4,7 +4,7 @@ from api.v1.accounts.views import *
 
 # Create a router and register our viewset with it.
 router = DefaultRouter()
-router.register(r'customer-feedback', CustomerFeedbackViewSet, basename='customer-feedback')
+router.register(r'customer_feedback', CustomerFeedbackViewSet, basename='customer_feedback')
 
 
 urlpatterns = [
@@ -16,10 +16,10 @@ urlpatterns = [
     # Outlet URLs
     # path('outlets/', OutletListCreateView.as_view(), name='outlet_list_create'),  # List and create outlets
     # path('outlets/<int:pk>/', OutletDetailView.as_view(), name='outlet_detail'),  # Retrieve, update, delete a specific outlet
-    path('add_customer/', CustomerCreateView.as_view(), name='add-customer'),  # API to add a single customer
-    path('update_delete_customer/<int:pk>/', CustomerCreateView.as_view(), name='customer-update-delete'),
-    path('upload_customers/', CustomerUploadView.as_view(), name='upload-customers'),  # API to upload customers via Excel
-    path('customers/', CustomerListView.as_view(), name='customer-list'),
-    path('customers/<int:pk>/', CustomerRetrieveView.as_view(), name='customer-detail'),
+    path('add_customer/', CustomerCreateView.as_view(), name='add_customer'),  # API to add a single customer
+    path('update_delete_customer/<int:pk>/', CustomerCreateView.as_view(), name='customer_update_delete'),
+    path('upload_customers/', CustomerUploadView.as_view(), name='upload_customers'),  # API to upload customers via Excel
+    path('customers/', CustomerListView.as_view(), name='customer_list'),
+    path('customers/<int:pk>/', CustomerRetrieveView.as_view(), name='customer_detail'),
     path('', include(router.urls)),  # Includes all ViewSet routes
 ]
