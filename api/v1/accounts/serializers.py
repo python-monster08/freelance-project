@@ -84,9 +84,17 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
 
 class CustomerSerializer(serializers.ModelSerializer):
+    msme = serializers.SerializerMethodField()
+    msme_name = serializers.SerializerMethodField()
     class Meta:
         model = Customer
         fields = '__all__'
+
+    def get_msme(self, obj):
+        return obj.msme.id
+    def get_msme_name(self, obj):
+        return obj.msme.brand_name
+    
 
 
 
