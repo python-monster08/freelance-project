@@ -595,18 +595,28 @@ class OutletViewSet(ModelViewSet):
     def destroy(self, request, *args, **kwargs):
         """Delete an outlet"""
         outlet_id = kwargs.get("pk")
-        user_profile = request.user.profile
 
+        # Check if the user has a UserProfile
+        try:
+            user_profile = request.user.profile
+        except AttributeError:
+            return Response({
+                "status": False,
+                "message": "User profile not found. Please ensure your account is set up correctly."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Try to delete the outlet
         try:
             outlet = Outlet.objects.get(id=outlet_id, user_profile=user_profile)
             outlet.delete()
             return Response({
                 "status": True,
-                "message": "Outlet deleted successfully",
-            }, status=status.HTTP_204_NO_CONTENT)
+                "message": "Outlet deleted successfully"
+            }, status=status.HTTP_200_OK)
 
         except Outlet.DoesNotExist:
             return Response({
                 "status": False,
-                "message": f"Outlet with id {outlet_id} not found",
+                "message": f"Outlet with id {outlet_id} not found."
             }, status=status.HTTP_404_NOT_FOUND)
+
