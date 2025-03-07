@@ -509,7 +509,7 @@ class OutletViewSet(ModelViewSet):
         for profile in queryset:
             response_data.append({
                 "id": f"main-{profile.id}",
-                "main_outlet_name": f"{profile.brand_name} (Main Outlet)",
+                "name": f"{profile.brand_name} (Main Outlet)",
                 "area": profile.area,
                 "city": profile.city,
                 "zip_code": profile.zip_code,
@@ -520,7 +520,7 @@ class OutletViewSet(ModelViewSet):
             for outlet in profile.outlets.all():
                 response_data.append({
                     "id": f"sub-{outlet.id}",
-                    "outlet_name": outlet.name,
+                    "name": outlet.name,
                     "area": outlet.area,
                     "city": outlet.city,
                     "zip_code": outlet.zip_code,
@@ -559,8 +559,8 @@ class OutletViewSet(ModelViewSet):
 
         return Response({
             "status": False,
-            "message": "Failed to create outlet",
-            "errors": serializer.errors,
+            "message": f"Failed to create outlet : {serializer.errors}",
+            # "errors": serializer.errors,
         }, status=status.HTTP_400_BAD_REQUEST)
 
     def update(self, request, *args, **kwargs):
@@ -582,8 +582,8 @@ class OutletViewSet(ModelViewSet):
             
             return Response({
                 "status": False,
-                "message": "Validation failed",
-                "errors": serializer.errors,
+                "message": f"Validation failed : {serializer.errors}",
+                # "errors": serializer.errors,
             }, status=status.HTTP_400_BAD_REQUEST)
 
         except Outlet.DoesNotExist:
