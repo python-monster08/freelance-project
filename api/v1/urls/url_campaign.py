@@ -7,7 +7,7 @@ router = DefaultRouter()
 router.register(r'professions', ProfessionViewSet, basename='profession')
 router.register(r'reward_choices', RewardChoiceViewSet, basename='reward-choice')
 router.register(r'campaign_types', CampaignTypeViewSet, basename='campaign-type')
-router.register(r'outlets', OutletListViewSet, basename='outlets')
+router.register(r'outlets', OutletViewSet, basename='outlets')
 
 urlpatterns = [ 
     path("campaigns/", CampaignListCreateView.as_view(), name="campaign-list-create"),

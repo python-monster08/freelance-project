@@ -102,5 +102,24 @@ class GetUserProfileSerializer(serializers.ModelSerializer):
         fields = ["id", "main_outlet_name", "area", "city", "zip_code", "state", "daily_footfalls", "sub_outlets"]
 
 
+class CreateOutletSerializer(serializers.ModelSerializer):
+    """Serializer for creating a new outlet"""
+
+    class Meta:
+        model = Outlet
+        fields = ["name", "area", "city", "zip_code", "state", "daily_footfalls"]
+
+    def create(self, validated_data):
+        """Attach outlet to the logged-in user's profile before saving"""
+        request = self.context.get("request")
+        user_profile = request.user.profile  # Get the profile of the logged-in user
+        validated_data["user_profile"] = user_profile
+        return super().create(validated_data)
 
 
+class UpdateOutletSerializer(serializers.ModelSerializer):
+    """Serializer for updating an existing outlet"""
+
+    class Meta:
+        model = Outlet
+        fields = ["name", "area", "city", "zip_code", "state", "daily_footfalls"]

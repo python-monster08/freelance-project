@@ -14,6 +14,7 @@ from io import BytesIO
 from PIL import Image
 import base64
 import requests
+from django.shortcuts import get_object_or_404
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 import json
@@ -436,39 +437,176 @@ class CampaignTypeViewSet(ModelViewSet):
 
 
 
-class OutletListViewSet(ModelViewSet):
-    """ViewSet for listing user profiles with their sub_outlets"""
+# class OutletListViewSet(ModelViewSet):
+#     """ViewSet for listing user profiles with their sub_outlets"""
+#     permission_classes = [IsAuthenticated]
+#     serializer_class = GetUserProfileSerializer
+
+#     def get_queryset(self):
+#         """Filter data to return only the logged-in user's profile"""
+#         return UserProfile.objects.filter(user=self.request.user)
+
+#     def list(self, request, *args, **kwargs):
+#         queryset = self.get_queryset()
+#         response_data = []
+
+#         for profile in queryset:
+#             # ✅ Add the main outlet (UserProfile)
+#             response_data.append({
+#                 "id": f"main-{profile.id}",  # Unique ID with prefix
+#                 "main_outlet_name": f"{profile.brand_name} (Main Outlet)",
+#                 "area": f"{profile.area}",
+#                 "city": f"{profile.city}",
+#                 "zip_code": f"{profile.zip_code}",
+#                 "state": f"{profile.state}",
+#                 "daily_footfalls": f"{profile.daily_approximate_footfalls}",
+#                 "created_on": f"{profile.updated_on}"
+#             })
+#             # ✅ Add sub_outlets (Outlets under UserProfile)
+#             for outlet in profile.outlets.all():
+#                 response_data.append({
+#                     "id": f"sub-{outlet.id}",  # Unique ID with prefix
+#                     "outlet_name": f"{outlet.name}",  # Indent sub-outlets
+#                     "area": f"{outlet.area}",
+#                     "city": f"{outlet.city}",
+#                     "zip_code": f"{outlet.zip_code}",
+#                     "state": f"{outlet.state}",
+#                     "state": f"{outlet.state}",
+#                     "daily_footfalls": f"{outlet.daily_footfalls}",
+#                     "created_on": f"{outlet.created_on}",
+#                 })
+#         return Response({
+#             "status": True,
+#             "message": "User profile with outlets retrieved successfully",
+#             "data": response_data
+#         }, status=status.HTTP_200_OK)
+
+
+class OutletViewSet(ModelViewSet):
+    """ViewSet for managing outlets under the user's profile"""
+    
     permission_classes = [IsAuthenticated]
-    serializer_class = GetUserProfileSerializer
 
     def get_queryset(self):
-        """Filter data to return only the logged-in user's profile"""
+        """Return only the logged-in user's profile"""
         return UserProfile.objects.filter(user=self.request.user)
 
+    def get_serializer_class(self):
+        """Return different serializers for different actions"""
+        if self.action == "list" or self.action == "retrieve":
+            return GetUserProfileSerializer
+        elif self.action == "create":
+            return CreateOutletSerializer
+        elif self.action == "update" or self.action == "partial_update":
+            return UpdateOutletSerializer
+        return super().get_serializer_class()
+
     def list(self, request, *args, **kwargs):
+        """List user profile with outlets"""
         queryset = self.get_queryset()
         response_data = []
 
         for profile in queryset:
-            # ✅ Add the main outlet (UserProfile)
             response_data.append({
-                "id": f"main-{profile.id}",  # Unique ID with prefix
-                "name": f"{profile.brand_name} (Main Outlet)"
+                "id": f"main-{profile.id}",
+                "main_outlet_name": f"{profile.brand_name} (Main Outlet)",
+                "area": profile.area,
+                "city": profile.city,
+                "zip_code": profile.zip_code,
+                "state": profile.state,
+                "daily_footfalls": profile.daily_approximate_footfalls,
+                "created_on": profile.updated_on,
             })
-
-            # ✅ Add sub_outlets (Outlets under UserProfile)
             for outlet in profile.outlets.all():
                 response_data.append({
-                    "id": f"sub-{outlet.id}",  # Unique ID with prefix
-                    "name": f"{outlet.name}"  # Indent sub-outlets
+                    "id": f"sub-{outlet.id}",
+                    "outlet_name": outlet.name,
+                    "area": outlet.area,
+                    "city": outlet.city,
+                    "zip_code": outlet.zip_code,
+                    "state": outlet.state,
+                    "daily_footfalls": outlet.daily_footfalls,
+                    "created_on": outlet.created_on,
                 })
 
         return Response({
             "status": True,
             "message": "User profile with outlets retrieved successfully",
-            "data": response_data
+            "data": response_data,
         }, status=status.HTTP_200_OK)
 
+    def retrieve(self, request, *args, **kwargs):
+        """Retrieve user profile with outlets"""
+        profile = get_object_or_404(self.get_queryset(), pk=kwargs.get("pk"))
+        serializer = self.get_serializer(profile)
 
+        return Response({
+            "status": True,
+            "message": "Profile retrieved successfully",
+            "data": serializer.data,
+        }, status=status.HTTP_200_OK)
 
+    def create(self, request, *args, **kwargs):
+        """Create a new outlet"""
+        serializer = self.get_serializer(data=request.data, context={"request": request})
+        if serializer.is_valid():
+            outlet = serializer.save()
+            return Response({
+                "status": True,
+                "message": "Outlet created successfully",
+                "data": OutletSerializer(outlet).data,
+            }, status=status.HTTP_201_CREATED)
 
+        return Response({
+            "status": False,
+            "message": "Failed to create outlet",
+            "errors": serializer.errors,
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    def update(self, request, *args, **kwargs):
+        """Update an existing outlet"""
+        outlet_id = kwargs.get("pk")
+        user_profile = request.user.profile
+
+        try:
+            outlet = Outlet.objects.get(id=outlet_id, user_profile=user_profile)
+            serializer = self.get_serializer(outlet, data=request.data, partial=True)
+            
+            if serializer.is_valid():
+                serializer.save()
+                return Response({
+                    "status": True,
+                    "message": "Outlet updated successfully",
+                    "data": serializer.data,
+                }, status=status.HTTP_200_OK)
+            
+            return Response({
+                "status": False,
+                "message": "Validation failed",
+                "errors": serializer.errors,
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        except Outlet.DoesNotExist:
+            return Response({
+                "status": False,
+                "message": f"Outlet with id {outlet_id} not found",
+            }, status=status.HTTP_404_NOT_FOUND)
+
+    def destroy(self, request, *args, **kwargs):
+        """Delete an outlet"""
+        outlet_id = kwargs.get("pk")
+        user_profile = request.user.profile
+
+        try:
+            outlet = Outlet.objects.get(id=outlet_id, user_profile=user_profile)
+            outlet.delete()
+            return Response({
+                "status": True,
+                "message": "Outlet deleted successfully",
+            }, status=status.HTTP_204_NO_CONTENT)
+
+        except Outlet.DoesNotExist:
+            return Response({
+                "status": False,
+                "message": f"Outlet with id {outlet_id} not found",
+            }, status=status.HTTP_404_NOT_FOUND)
