@@ -12,7 +12,7 @@ import requests
 from django.contrib.auth.hashers import check_password
 from datetime import datetime, timedelta
 from django.conf import settings
-from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 import pandas as pd
 from django.core.exceptions import ValidationError
 from rest_framework.pagination import PageNumberPagination
@@ -373,12 +373,13 @@ class UpdateProfileView(generics.RetrieveUpdateDestroyAPIView):
     """
     serializer_class = UpdateProfileSerializer
     permission_classes = [IsAuthenticated]
-    parser_classes = [MultiPartParser, FormParser]  # Supports file uploads
+    parser_classes = [MultiPartParser, FormParser, JSONParser]  # Supports file uploads
 
     def get_object(self):
         """Retrieve the authenticated user's profile, ensuring it exists"""
         return get_object_or_404(UserProfile, user=self.request.user, is_deleted=False)
 
+    
     def perform_update(self, serializer):
         """Update UserMaster fields separately before saving UserProfile"""
         profile = serializer.instance
