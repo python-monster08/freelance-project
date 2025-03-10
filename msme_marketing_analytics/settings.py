@@ -316,3 +316,16 @@ EMAIL_USE_SSL = False  # Set to True if using SSL
 EMAIL_HOST_USER = config("EMAIL_HOST_USER")
 EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD")  # Use App Password if using Gmail
 DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL")
+
+
+SWAGGER_SETTINGS = {
+    "SECURITY_DEFINITIONS": {
+        "Token": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header",
+            "description": "Enter your token as **Token your_token_here**",
+        }
+    },
+    "USE_SESSION_AUTH": False,  # ✅ Disable default Django session auth
+}

@@ -3,6 +3,8 @@ from api.v1.models import *
 from django.contrib.auth import get_user_model
 from django.utils.translation import gettext_lazy as _
 from django.core.exceptions import ValidationError
+from django.conf import settings
+from urllib.parse import urljoin
 
 User = get_user_model()
 
@@ -52,36 +54,126 @@ class OutletSerializer(serializers.ModelSerializer):
         fields = ["id", "name", "area", "city", "zip_code", "state", "daily_footfalls"]
         read_only_fields = ["id"]  # Auto-generated field
 
-class UserProfileSerializer(serializers.ModelSerializer):
-    """Serializer for UserProfile model, allowing nested Outlet creation"""
+# class UserProfileSerializer(serializers.ModelSerializer):
+#     """Serializer for UserProfile model, allowing nested Outlet creation"""
     
-    outlets = OutletSerializer(many=True, required=False)  # Supports multiple outlets
+#     outlets = OutletSerializer(many=True, required=False)  # Supports multiple outlets
+
+#     class Meta:
+#         model = UserProfile
+#         fields = "__all__"  # Include all fields in the UserProfile model
+
+#     def update(self, instance, validated_data):
+#         """Custom update method to handle nested outlets"""
+        
+#         # Extract nested outlets data
+#         outlets_data = validated_data.pop("outlets", [])
+
+#         # Update the UserProfile fields
+#         for attr, value in validated_data.items():
+#             setattr(instance, attr, value)
+#         instance.save()
+
+#         # Handle outlets (clear old ones and add new ones)
+#         instance.outlets.all().delete()
+#         for outlet_data in outlets_data:
+#             Outlet.objects.create(user_profile=instance, **outlet_data)
+
+#         # Update number_of_outlets with outlet names
+#         instance.update_outlet_count()
+
+#         return instance
+class UpdateProfileSerializer(serializers.ModelSerializer):
+    """Serializer for updating and retrieving UserProfile details"""
+
+    # UserMaster fields
+    username = serializers.CharField(source="user.username", read_only=True)
+    email = serializers.EmailField(source="user.email", read_only=True)
+    first_name = serializers.CharField(source="user.first_name")
+    last_name = serializers.CharField(source="user.last_name")
+    is_active = serializers.BooleanField(source="user.is_active", read_only=True)
+    phone_number = serializers.CharField(source="user.phone_number")
+    created_on = serializers.DateTimeField(source="user.created_on", read_only=True)
+
+    # UserProfile fields
+    website = serializers.CharField(required=False, allow_blank=True)
+    brand_name = serializers.CharField(required=False, allow_blank=True)
+    number_of_outlets = serializers.SerializerMethodField()  # Dynamic field
+    daily_approximate_footfalls = serializers.IntegerField(required=False)
+    area = serializers.CharField(required=False, allow_blank=True)
+    city = serializers.CharField(required=False, allow_blank=True)
+    zip_code = serializers.CharField(required=False, allow_blank=True)
+    state = serializers.CharField(required=False, allow_blank=True)
+    gstin = serializers.CharField(required=False, allow_blank=True)
+    pan_number = serializers.CharField(required=False, allow_blank=True)
+
+    # Images
+    profile_picture = serializers.SerializerMethodField()
+    brand_logo = serializers.SerializerMethodField()
+
+    # Related Outlets
+    outlets = OutletSerializer(many=True, read_only=True)
 
     class Meta:
         model = UserProfile
-        fields = "__all__"  # Include all fields in the UserProfile model
+        fields = [
+            "username", "email", "first_name", "last_name", "is_active", "phone_number",
+            "profile_picture", "website", "brand_name", "number_of_outlets",
+            "daily_approximate_footfalls", "brand_logo", "area", "city", "zip_code",
+            "state", "gstin", "pan_number", "created_on", "updated_on", "outlets"
+        ]
+
+    def get_number_of_outlets(self, obj):
+        """Return the dynamic count of active outlets"""
+        return obj.outlets.filter(is_deleted=False).count()
+
+    def get_image_url(self, obj, field_name):
+        """Returns the full URL for an image field."""
+        request = self.context.get("request")
+        image = getattr(obj, field_name)
+        if image:
+            return request.build_absolute_uri(image.url) if request else image.url
+        return None
+
+    def get_profile_picture(self, obj):
+        return self.get_image_url(obj, "profile_picture")
+
+    def get_brand_logo(self, obj):
+        return self.get_image_url(obj, "brand_logo")
 
     def update(self, instance, validated_data):
-        """Custom update method to handle nested outlets"""
-        
-        # Extract nested outlets data
-        outlets_data = validated_data.pop("outlets", [])
+        """Ensure UserMaster fields are updated when UserProfile is updated"""
+        user_data = self.context["request"].data  # Get request data
+        request = self.context.get("request")  # Get request context
 
-        # Update the UserProfile fields
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
+        # Update UserMaster fields
+        user = instance.user
+        user.first_name = user_data.get("first_name", user.first_name)
+        user.last_name = user_data.get("last_name", user.last_name)
+        user.phone_number = user_data.get("phone_number", user.phone_number)
+        user.save()
+
+        # Update UserProfile fields
+        instance.brand_name = validated_data.get("brand_name", instance.brand_name)
+        instance.website = validated_data.get("website", instance.website)
+        instance.daily_approximate_footfalls = validated_data.get("daily_approximate_footfalls", instance.daily_approximate_footfalls)
+        instance.area = validated_data.get("area", instance.area)
+        instance.city = validated_data.get("city", instance.city)
+        instance.zip_code = validated_data.get("zip_code", instance.zip_code)
+        instance.state = validated_data.get("state", instance.state)
+        instance.gstin = validated_data.get("gstin", instance.gstin)
+        instance.pan_number = validated_data.get("pan_number", instance.pan_number)
+
+        # Handle profile_picture update
+        if "profile_picture" in request.FILES:
+            instance.profile_picture = request.FILES["profile_picture"]
+
+        # Handle brand_logo update
+        if "brand_logo" in request.FILES:
+            instance.brand_logo = request.FILES["brand_logo"]
+
         instance.save()
-
-        # Handle outlets (clear old ones and add new ones)
-        instance.outlets.all().delete()
-        for outlet_data in outlets_data:
-            Outlet.objects.create(user_profile=instance, **outlet_data)
-
-        # Update number_of_outlets with outlet names
-        instance.update_outlet_count()
-
         return instance
-
 
 class CustomerSerializer(serializers.ModelSerializer):
     msme = serializers.SerializerMethodField()

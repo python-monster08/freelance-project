@@ -36,10 +36,18 @@ class UserMasterAdmin(UserAdmin):
 
 class UserProfileAdmin(admin.ModelAdmin):
     list_display = [
-        "id","user", "brand_name", "area", "city", "zip_code", "state", "number_of_outlets", "daily_approximate_footfalls", "gstin", "website"
+        "id", "user", "brand_name", "area", "city", "zip_code", "state", "get_number_of_outlets", 
+        "daily_approximate_footfalls", "gstin", "website"
     ]
     search_fields = ["user__username", "user__email", "brand_name", "city", "state"]
     list_filter = ["city", "state"]
+
+    def get_number_of_outlets(self, obj):
+        """Return the number of active (non-deleted) outlets associated with the profile."""
+        return obj.outlets.filter(is_deleted=False).count() or 0
+
+    get_number_of_outlets.short_description = "Active Outlets"
+
 
 
 class OutletAdmin(admin.ModelAdmin):

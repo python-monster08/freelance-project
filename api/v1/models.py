@@ -69,23 +69,21 @@ class UserMaster(AbstractUser):
         verbose_name = "User Master"
         verbose_name_plural = "User Masters"
     
-
 class UserProfile(models.Model):
     """Profile model for storing additional user details"""
 
     user = models.OneToOneField(UserMaster, on_delete=models.CASCADE, related_name="profile")
     profile_picture = models.ImageField(upload_to="profile_pics/", null=True, blank=True)
     website = models.URLField(null=True, blank=True)
-    
+
     # MSME-specific fields
     brand_name = models.CharField(max_length=255, null=True, blank=True)
-    number_of_outlets = models.TextField(null=True, blank=True)  # Store names
     daily_approximate_footfalls = models.IntegerField(null=True, blank=True)
     brand_logo = models.ImageField(upload_to="brand_logos/", null=True, blank=True)
-    area = models.CharField(max_length=100, null=True, blank=True)  # Main branch area
-    city = models.CharField(max_length=100, null=True, blank=True)  # Main branch city
-    zip_code = models.CharField(max_length=15, null=True, blank=True)  # Main branch zipcode
-    state = models.CharField(max_length=100, null=True, blank=True)  # Main branch state
+    area = models.CharField(max_length=100, null=True, blank=True)
+    city = models.CharField(max_length=100, null=True, blank=True)
+    zip_code = models.CharField(max_length=15, null=True, blank=True)
+    state = models.CharField(max_length=100, null=True, blank=True)
     gstin = models.CharField(max_length=15, null=True, blank=True)
     pan_number = models.CharField(max_length=15, null=True, blank=True)
     updated_on = models.DateTimeField(auto_now=True)
@@ -93,43 +91,39 @@ class UserProfile(models.Model):
 
     def __str__(self):
         return f"{self.user.username}'s MSME"
+
     class Meta:
         db_table = "user_profile"
         verbose_name = "User Profile"
         verbose_name_plural = "User Profiles"
 
-    def update_outlet_count(self):
-        """Automatically update number_of_outlets with outlet names"""
-        outlet_names = self.outlets.values_list("name", flat=True)  # Get list of names
-        self.number_of_outlets = ", ".join(outlet_names) if outlet_names else None  # Store as a comma-separated string
-        self.save()
-
-
 class Outlet(models.Model):
     """Model for multiple outlets under a UserProfile"""
 
     user_profile = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name="outlets")
-    name = models.CharField(max_length=255)  # New field for outlet name
+    name = models.CharField(max_length=255)
     area = models.CharField(max_length=255)
     city = models.CharField(max_length=100)
     zip_code = models.CharField(max_length=15)
     state = models.CharField(max_length=100)
     daily_footfalls = models.IntegerField(null=True, blank=True)
     is_deleted = models.BooleanField(default=False)
-    created_on = models.DateTimeField(auto_now_add=True, blank=True,null=True)
+    created_on = models.DateTimeField(auto_now_add=True, null=True, blank=True)
     updated_on = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return f"{self.name} - {self.city}, {self.state} ({self.user_profile.user.username})"
+
     class Meta:
         db_table = "outlet"
         verbose_name = "Outlet"
         verbose_name_plural = "Outlets"
 
-    def save(self, *args, **kwargs):
-        """Override save method to update the number_of_outlets"""
-        super().save(*args, **kwargs)
-        self.user_profile.update_outlet_count()
+    def delete(self, *args, **kwargs):
+        """Override delete to handle soft deletion"""
+        self.is_deleted = True
+        self.save(update_fields=["is_deleted"])
+
         
 class Customer(models.Model):
     """ Model for storing customer details """

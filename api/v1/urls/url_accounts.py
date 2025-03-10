@@ -5,12 +5,13 @@ from api.v1.accounts.views import *
 # Create a router and register our viewset with it.
 router = DefaultRouter()
 router.register(r'customer_feedback', CustomerFeedbackViewSet, basename='customer_feedback')
+# router.register(r'profile_update', UpdateProfileViewSet, basename='profile_update')
 
 
 urlpatterns = [
     path('signup/', UserSignupView.as_view(), name='signup'),
     path('login/', UserLoginView.as_view(), name='login'),
-    path('profile_update/', UserProfileView.as_view(), name='profile_update'),
+    path('profile_update/', UpdateProfileView.as_view(), name='profile_update'),
     path('social_login/', SocialLoginView.as_view(), name='social_login'),
     
     # Outlet URLs
