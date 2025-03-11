@@ -482,6 +482,145 @@ class CampaignTypeViewSet(ModelViewSet):
 #         }, status=status.HTTP_200_OK)
 
 
+# class OutletViewSet(ModelViewSet):
+#     """ViewSet for managing outlets under the user's profile"""
+    
+#     permission_classes = [IsAuthenticated]
+
+#     def get_queryset(self):
+#         """Return only the logged-in user's profile"""
+#         return UserProfile.objects.filter(user=self.request.user)
+
+#     def get_serializer_class(self):
+#         """Return different serializers for different actions"""
+#         if self.action == "list" or self.action == "retrieve":
+#             return GetUserProfileSerializer
+#         elif self.action == "create":
+#             return CreateOutletSerializer
+#         elif self.action == "update" or self.action == "partial_update":
+#             return UpdateOutletSerializer
+#         return super().get_serializer_class()
+
+#     def list(self, request, *args, **kwargs):
+#         """List user profile with outlets"""
+#         queryset = self.get_queryset()
+#         response_data = []
+
+#         for profile in queryset:
+#             response_data.append({
+#                 "id": f"main-{profile.id}",
+#                 "name": f"{profile.brand_name} (Main Outlet)",
+#                 "area": profile.area,
+#                 "city": profile.city,
+#                 "zip_code": profile.zip_code,
+#                 "state": profile.state,
+#                 "daily_footfalls": profile.daily_approximate_footfalls,
+#                 "created_on": profile.updated_on,
+#             })
+#             for outlet in profile.outlets.all():
+#                 response_data.append({
+#                     "id": f"sub-{outlet.id}",
+#                     "name": outlet.name,
+#                     "area": outlet.area,
+#                     "city": outlet.city,
+#                     "zip_code": outlet.zip_code,
+#                     "state": outlet.state,
+#                     "daily_footfalls": outlet.daily_footfalls,
+#                     "created_on": outlet.created_on,
+#                 })
+
+#         return Response({
+#             "status": True,
+#             "message": "User profile with outlets retrieved successfully",
+#             "data": response_data,
+#         }, status=status.HTTP_200_OK)
+
+#     def retrieve(self, request, *args, **kwargs):
+#         """Retrieve user profile with outlets"""
+#         profile = get_object_or_404(self.get_queryset(), pk=kwargs.get("pk"))
+#         serializer = self.get_serializer(profile)
+
+#         return Response({
+#             "status": True,
+#             "message": "Profile retrieved successfully",
+#             "data": serializer.data,
+#         }, status=status.HTTP_200_OK)
+
+#     def create(self, request, *args, **kwargs):
+#         """Create a new outlet"""
+#         serializer = self.get_serializer(data=request.data, context={"request": request})
+#         if serializer.is_valid():
+#             outlet = serializer.save()
+#             return Response({
+#                 "status": True,
+#                 "message": "Outlet created successfully",
+#                 "data": OutletSerializer(outlet).data,
+#             }, status=status.HTTP_201_CREATED)
+
+#         return Response({
+#             "status": False,
+#             "message": f"Failed to create outlet : {serializer.errors}",
+#             # "errors": serializer.errors,
+#         }, status=status.HTTP_400_BAD_REQUEST)
+
+#     def update(self, request, *args, **kwargs):
+#         """Update an existing outlet"""
+#         outlet_id = kwargs.get("pk")
+#         user_profile = request.user.profile
+
+#         try:
+#             outlet = Outlet.objects.get(id=outlet_id, user_profile=user_profile)
+#             serializer = self.get_serializer(outlet, data=request.data, partial=True)
+            
+#             if serializer.is_valid():
+#                 serializer.save()
+#                 return Response({
+#                     "status": True,
+#                     "message": "Outlet updated successfully",
+#                     "data": serializer.data,
+#                 }, status=status.HTTP_200_OK)
+            
+#             return Response({
+#                 "status": False,
+#                 "message": f"Validation failed : {serializer.errors}",
+#                 # "errors": serializer.errors,
+#             }, status=status.HTTP_400_BAD_REQUEST)
+
+#         except Outlet.DoesNotExist:
+#             return Response({
+#                 "status": False,
+#                 "message": f"Outlet with id {outlet_id} not found",
+#             }, status=status.HTTP_404_NOT_FOUND)
+
+#     def destroy(self, request, *args, **kwargs):
+#         """Delete an outlet"""
+#         outlet_id = kwargs.get("pk")
+
+#         # Check if the user has a UserProfile
+#         try:
+#             user_profile = request.user.profile
+#         except AttributeError:
+#             return Response({
+#                 "status": False,
+#                 "message": "User profile not found. Please ensure your account is set up correctly."
+#             }, status=status.HTTP_400_BAD_REQUEST)
+
+#         # Try to delete the outlet
+#         try:
+#             outlet = Outlet.objects.get(id=outlet_id, user_profile=user_profile)
+#             outlet.delete()
+#             return Response({
+#                 "status": True,
+#                 "message": "Outlet deleted successfully"
+#             }, status=status.HTTP_200_OK)
+
+#         except Outlet.DoesNotExist:
+#             return Response({
+#                 "status": False,
+#                 "message": f"Outlet with id {outlet_id} not found."
+#             }, status=status.HTTP_404_NOT_FOUND)
+
+
 class OutletViewSet(ModelViewSet):
     """ViewSet for managing outlets under the user's profile"""
     
@@ -493,13 +632,21 @@ class OutletViewSet(ModelViewSet):
 
     def get_serializer_class(self):
         """Return different serializers for different actions"""
-        if self.action == "list" or self.action == "retrieve":
+        if self.action in ["list", "retrieve"]:
             return GetUserProfileSerializer
         elif self.action == "create":
             return CreateOutletSerializer
-        elif self.action == "update" or self.action == "partial_update":
+        elif self.action in ["update", "partial_update"]:
             return UpdateOutletSerializer
         return super().get_serializer_class()
+
+    def extract_id(self, pk):
+        """Extract numeric ID and determine type from 'main-' or 'sub-' prefix"""
+        if pk.startswith("main-"):
+            return "main", int(pk.split("-")[1])
+        elif pk.startswith("sub-"):
+            return "sub", int(pk.split("-")[1])
+        return None, None
 
     def list(self, request, *args, **kwargs):
         """List user profile with outlets"""
@@ -536,16 +683,109 @@ class OutletViewSet(ModelViewSet):
         }, status=status.HTTP_200_OK)
 
     def retrieve(self, request, *args, **kwargs):
-        """Retrieve user profile with outlets"""
-        profile = get_object_or_404(self.get_queryset(), pk=kwargs.get("pk"))
-        serializer = self.get_serializer(profile)
+        """Retrieve either a UserProfile or an Outlet based on the formatted ID"""
+        entity_type, entity_id = self.extract_id(kwargs.get("pk"))
+        
+        if entity_type == "main":
+            profile = get_object_or_404(UserProfile, id=entity_id, user=request.user)
+            return Response({
+                "status": True,
+                "message": "User profile retrieved successfully",
+                "data": {
+                    "id": f"main-{profile.id}",
+                    "name": f"{profile.brand_name} (Main Outlet)",
+                    "area": profile.area,
+                    "city": profile.city,
+                    "zip_code": profile.zip_code,
+                    "state": profile.state,
+                    "daily_footfalls": profile.daily_approximate_footfalls,
+                    "created_on": profile.updated_on,
+                },
+            }, status=status.HTTP_200_OK)
 
-        return Response({
-            "status": True,
-            "message": "Profile retrieved successfully",
-            "data": serializer.data,
-        }, status=status.HTTP_200_OK)
+        elif entity_type == "sub":
+            outlet = get_object_or_404(Outlet, id=entity_id, user_profile__user=request.user)
+            return Response({
+                "status": True,
+                "message": "Outlet retrieved successfully",
+                "data": {
+                    "id": f"sub-{outlet.id}",
+                    "name": outlet.name,
+                    "area": outlet.area,
+                    "city": outlet.city,
+                    "zip_code": outlet.zip_code,
+                    "state": outlet.state,
+                    "daily_footfalls": outlet.daily_footfalls,
+                    "created_on": outlet.created_on,
+                },
+            }, status=status.HTTP_200_OK)
 
+        return Response({"status": False, "message": "Invalid ID format"}, status=status.HTTP_400_BAD_REQUEST)
+
+    def update(self, request, *args, **kwargs):
+        """Update UserProfile or Outlet based on the formatted ID"""
+        entity_type, entity_id = self.extract_id(kwargs.get("pk"))
+
+        if entity_type == "main":
+            profile = get_object_or_404(UserProfile, id=entity_id, user=request.user)
+            serializer = self.get_serializer(profile, data=request.data, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+                return Response({
+                    "status": True,
+                    "message": "Main outlet updated successfully",
+                    "data": serializer.data,
+                }, status=status.HTTP_200_OK)
+
+            return Response({
+                "status": False,
+                "message": "Validation failed",
+                "errors": serializer.errors,
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        elif entity_type == "sub":
+            outlet = get_object_or_404(Outlet, id=entity_id, user_profile__user=request.user)
+            serializer = self.get_serializer(outlet, data=request.data, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+                return Response({
+                    "status": True,
+                    "message": "Sub Outlet updated successfully",
+                    "data": serializer.data,
+                }, status=status.HTTP_200_OK)
+
+            return Response({
+                "status": False,
+                "message": "Validation failed",
+                "errors": serializer.errors,
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({"status": False, "message": "Invalid ID format"}, status=status.HTTP_400_BAD_REQUEST)
+
+    def destroy(self, request, *args, **kwargs):
+        """Soft delete UserProfile or Outlet based on the formatted ID"""
+        entity_type, entity_id = self.extract_id(kwargs.get("pk"))
+
+        if entity_type == "main":
+            profile = get_object_or_404(UserProfile, id=entity_id, user=request.user)
+            profile.is_deleted = True
+            profile.save()
+            return Response({
+                "status": True,
+                "message": "User profile deleted successfully",
+            }, status=status.HTTP_200_OK)
+
+        elif entity_type == "sub":
+            outlet = get_object_or_404(Outlet, id=entity_id, user_profile__user=request.user)
+            outlet.is_deleted = True
+            outlet.save()
+            return Response({
+                "status": True,
+                "message": "Outlet deleted successfully",
+            }, status=status.HTTP_200_OK)
+
+        return Response({"status": False, "message": "Invalid ID format"}, status=status.HTTP_400_BAD_REQUEST)
+    
     def create(self, request, *args, **kwargs):
         """Create a new outlet"""
         serializer = self.get_serializer(data=request.data, context={"request": request})
@@ -554,69 +794,21 @@ class OutletViewSet(ModelViewSet):
             return Response({
                 "status": True,
                 "message": "Outlet created successfully",
-                "data": OutletSerializer(outlet).data,
+                "data": {
+                    "id": f"sub-{outlet.id}",
+                    "name": outlet.name,
+                    "area": outlet.area,
+                    "city": outlet.city,
+                    "zip_code": outlet.zip_code,
+                    "state": outlet.state,
+                    "daily_footfalls": outlet.daily_footfalls,
+                    "created_on": outlet.created_on,
+                },
             }, status=status.HTTP_201_CREATED)
 
         return Response({
             "status": False,
-            "message": f"Failed to create outlet : {serializer.errors}",
-            # "errors": serializer.errors,
+            "message": f"Failed to create outlet: {serializer.errors}",
         }, status=status.HTTP_400_BAD_REQUEST)
 
-    def update(self, request, *args, **kwargs):
-        """Update an existing outlet"""
-        outlet_id = kwargs.get("pk")
-        user_profile = request.user.profile
-
-        try:
-            outlet = Outlet.objects.get(id=outlet_id, user_profile=user_profile)
-            serializer = self.get_serializer(outlet, data=request.data, partial=True)
-            
-            if serializer.is_valid():
-                serializer.save()
-                return Response({
-                    "status": True,
-                    "message": "Outlet updated successfully",
-                    "data": serializer.data,
-                }, status=status.HTTP_200_OK)
-            
-            return Response({
-                "status": False,
-                "message": f"Validation failed : {serializer.errors}",
-                # "errors": serializer.errors,
-            }, status=status.HTTP_400_BAD_REQUEST)
-
-        except Outlet.DoesNotExist:
-            return Response({
-                "status": False,
-                "message": f"Outlet with id {outlet_id} not found",
-            }, status=status.HTTP_404_NOT_FOUND)
-
-    def destroy(self, request, *args, **kwargs):
-        """Delete an outlet"""
-        outlet_id = kwargs.get("pk")
-
-        # Check if the user has a UserProfile
-        try:
-            user_profile = request.user.profile
-        except AttributeError:
-            return Response({
-                "status": False,
-                "message": "User profile not found. Please ensure your account is set up correctly."
-            }, status=status.HTTP_400_BAD_REQUEST)
-
-        # Try to delete the outlet
-        try:
-            outlet = Outlet.objects.get(id=outlet_id, user_profile=user_profile)
-            outlet.delete()
-            return Response({
-                "status": True,
-                "message": "Outlet deleted successfully"
-            }, status=status.HTTP_200_OK)
-
-        except Outlet.DoesNotExist:
-            return Response({
-                "status": False,
-                "message": f"Outlet with id {outlet_id} not found."
-            }, status=status.HTTP_404_NOT_FOUND)
 
