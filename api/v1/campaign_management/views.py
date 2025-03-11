@@ -812,3 +812,5 @@ class OutletViewSet(ModelViewSet):
         }, status=status.HTTP_400_BAD_REQUEST)
 
 
+
+
