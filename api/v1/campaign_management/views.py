@@ -18,6 +18,7 @@ from django.shortcuts import get_object_or_404
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 import json
+from django.http import Http404
 
 class CampaignListCreateView(generics.ListCreateAPIView):
     """API to list all campaigns or create a new campaign"""
@@ -620,15 +621,20 @@ class CampaignTypeViewSet(ModelViewSet):
 #                 "message": f"Outlet with id {outlet_id} not found."
 #             }, status=status.HTTP_404_NOT_FOUND)
 
-
+from django.db.models import Prefetch
 class OutletViewSet(ModelViewSet):
     """ViewSet for managing outlets under the user's profile"""
     
     permission_classes = [IsAuthenticated]
 
+    # def get_queryset(self):
+    #     """Return only the logged-in user's profile"""
+    #     return UserProfile.objects.filter(user=self.request.user)
     def get_queryset(self):
-        """Return only the logged-in user's profile"""
-        return UserProfile.objects.filter(user=self.request.user)
+        return UserProfile.objects.filter(user=self.request.user, is_deleted=False).prefetch_related(
+            Prefetch("outlets", queryset=Outlet.objects.filter(is_deleted=False))
+        )
+
 
     def get_serializer_class(self):
         """Return different serializers for different actions"""
@@ -685,42 +691,58 @@ class OutletViewSet(ModelViewSet):
     def retrieve(self, request, *args, **kwargs):
         """Retrieve either a UserProfile or an Outlet based on the formatted ID"""
         entity_type, entity_id = self.extract_id(kwargs.get("pk"))
-        
-        if entity_type == "main":
-            profile = get_object_or_404(UserProfile, id=entity_id, user=request.user)
-            return Response({
-                "status": True,
-                "message": "Main outlet retrieved successfully",
-                "data": {
-                    "id": f"main-{profile.id}",
-                    "name": f"{profile.brand_name} (Main Outlet)",
-                    "area": profile.area,
-                    "city": profile.city,
-                    "zip_code": profile.zip_code,
-                    "state": profile.state,
-                    "daily_footfalls": profile.daily_approximate_footfalls,
-                    "created_on": profile.updated_on,
-                },
-            }, status=status.HTTP_200_OK)
 
-        elif entity_type == "sub":
-            outlet = get_object_or_404(Outlet, id=entity_id, user_profile__user=request.user)
-            return Response({
-                "status": True,
-                "message": "Sub outlet retrieved successfully",
-                "data": {
-                    "id": f"sub-{outlet.id}",
-                    "name": outlet.name,
-                    "area": outlet.area,
-                    "city": outlet.city,
-                    "zip_code": outlet.zip_code,
-                    "state": outlet.state,
-                    "daily_footfalls": outlet.daily_footfalls,
-                    "created_on": outlet.created_on,
-                },
-            }, status=status.HTTP_200_OK)
+        try:
+            if entity_type == "main":
+                profile = UserProfile.objects.get(id=entity_id, user=request.user)
 
-        return Response({"status": False, "message": "Invalid ID format"}, status=status.HTTP_400_BAD_REQUEST)
+                if profile.is_deleted:
+                    return Response({"status": True, "message": "Main outlet not found", "data": {}}, status=status.HTTP_200_OK)
+
+                return Response({
+                    "status": True,
+                    "message": "Main outlet retrieved successfully",
+                    "data": {
+                        "id": f"main-{profile.id}",
+                        "name": f"{profile.brand_name} (Main Outlet)",
+                        "area": profile.area,
+                        "city": profile.city,
+                        "zip_code": profile.zip_code,
+                        "state": profile.state,
+                        "daily_footfalls": profile.daily_approximate_footfalls,
+                        "created_on": profile.updated_on,
+                    },
+                }, status=status.HTTP_200_OK)
+
+            elif entity_type == "sub":
+                outlet = Outlet.objects.get(id=entity_id, user_profile__user=request.user)
+
+                if outlet.is_deleted:
+                    return Response({"status": True, "message": "Sub outlet not found", "data": {}}, status=status.HTTP_200_OK)
+
+                return Response({
+                    "status": True,
+                    "message": "Sub outlet retrieved successfully",
+                    "data": {
+                        "id": f"sub-{outlet.id}",
+                        "name": outlet.name,
+                        "area": outlet.area,
+                        "city": outlet.city,
+                        "zip_code": outlet.zip_code,
+                        "state": outlet.state,
+                        "daily_footfalls": outlet.daily_footfalls,
+                        "created_on": outlet.created_on,
+                    },
+                }, status=status.HTTP_200_OK)
+
+        except UserProfile.DoesNotExist:
+            return Response({"status": True, "message": "Main outlet not found", "data": {}}, status=status.HTTP_200_OK)
+        except Outlet.DoesNotExist:
+            return Response({"status": True, "message": "Sub outlet not found", "data": {}}, status=status.HTTP_200_OK)
+        except Http404:
+            return Response({"status": True, "message": "Data not found", "data": {}}, status=status.HTTP_200_OK)
+
+        return Response({"status": False, "message": "Invalid ID format", "data": {}}, status=status.HTTP_400_BAD_REQUEST)
 
     def update(self, request, *args, **kwargs):
         """Update UserProfile or Outlet based on the formatted ID"""
