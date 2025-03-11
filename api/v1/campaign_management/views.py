@@ -678,7 +678,7 @@ class OutletViewSet(ModelViewSet):
 
         return Response({
             "status": True,
-            "message": "User profile with outlets retrieved successfully",
+            "message": "All outlets retrieved successfully",
             "data": response_data,
         }, status=status.HTTP_200_OK)
 
@@ -690,7 +690,7 @@ class OutletViewSet(ModelViewSet):
             profile = get_object_or_404(UserProfile, id=entity_id, user=request.user)
             return Response({
                 "status": True,
-                "message": "User profile retrieved successfully",
+                "message": "Main outlet retrieved successfully",
                 "data": {
                     "id": f"main-{profile.id}",
                     "name": f"{profile.brand_name} (Main Outlet)",
@@ -707,7 +707,7 @@ class OutletViewSet(ModelViewSet):
             outlet = get_object_or_404(Outlet, id=entity_id, user_profile__user=request.user)
             return Response({
                 "status": True,
-                "message": "Outlet retrieved successfully",
+                "message": "Sub outlet retrieved successfully",
                 "data": {
                     "id": f"sub-{outlet.id}",
                     "name": outlet.name,
@@ -772,7 +772,7 @@ class OutletViewSet(ModelViewSet):
             profile.save()
             return Response({
                 "status": True,
-                "message": "User profile deleted successfully",
+                "message": "Main outlet deleted successfully",
             }, status=status.HTTP_200_OK)
 
         elif entity_type == "sub":
@@ -781,7 +781,7 @@ class OutletViewSet(ModelViewSet):
             outlet.save()
             return Response({
                 "status": True,
-                "message": "Outlet deleted successfully",
+                "message": "Sub outlet deleted successfully",
             }, status=status.HTTP_200_OK)
 
         return Response({"status": False, "message": "Invalid ID format"}, status=status.HTTP_400_BAD_REQUEST)
@@ -810,7 +810,6 @@ class OutletViewSet(ModelViewSet):
             "status": False,
             "message": f"Failed to create outlet: {serializer.errors}",
         }, status=status.HTTP_400_BAD_REQUEST)
-
 
 
 
