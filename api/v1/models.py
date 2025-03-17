@@ -4,10 +4,51 @@ import os
 from django.utils.timezone import now
 from django.utils.text import slugify
 
+# Create your models here.
+
+class UserRole(models.Model):
+    """Role model for defining user roles"""
+    id = models.IntegerField(primary_key=True)
+    role = models.CharField(max_length=20, unique=True)
+
+    def __str__(self):
+        return self.role
+
+    class Meta:
+        db_table = "user_role"
+        verbose_name = "User Role"
+        verbose_name_plural = "User Roles"
+
+# class UserManager(BaseUserManager):
+#     """Custom manager for UserMaster model"""
+
+#     def create_user(self, email, username, phone_number, password=None, **extra_fields):
+#         """Create a normal user"""
+#         if not email:
+#             raise ValueError("Email is required")
+#         if not username:
+#             raise ValueError("Username is required")
+#         if not phone_number:
+#             raise ValueError("Phone number is required")
+
+#         email = self.normalize_email(email)
+#         user = self.model(email=email, username=username, phone_number=phone_number, **extra_fields)
+#         user.set_password(password)
+#         user.save(using=self._db)
+#         return user
+
+#     def create_superuser(self, email, username, phone_number, password=None, **extra_fields):
+#         """Create a superuser with admin privileges"""
+#         extra_fields.setdefault("is_active", True)
+#         extra_fields.setdefault("is_staff", True)
+#         extra_fields.setdefault("is_superuser", True)
+
+#         return self.create_user(email, username, phone_number, password, **extra_fields)
+
 class UserManager(BaseUserManager):
     """Custom manager for UserMaster model"""
 
-    def create_user(self, email, username, phone_number, password=None, **extra_fields):
+    def create_user(self, email, username, phone_number, password=None, role_id=None, **extra_fields):
         """Create a normal user"""
         if not email:
             raise ValueError("Email is required")
@@ -17,30 +58,38 @@ class UserManager(BaseUserManager):
             raise ValueError("Phone number is required")
 
         email = self.normalize_email(email)
-        user = self.model(email=email, username=username, phone_number=phone_number, **extra_fields)
+
+        # Fetch or set role
+        role = UserRole.objects.filter(id=role_id).first() if role_id else None
+
+        user = self.model(email=email, username=username, phone_number=phone_number, role=role, **extra_fields)
         user.set_password(password)
         user.save(using=self._db)
         return user
 
     def create_superuser(self, email, username, phone_number, password=None, **extra_fields):
-        """Create a superuser with admin privileges"""
+        """Create a superuser with role_id=1"""
         extra_fields.setdefault("is_active", True)
         extra_fields.setdefault("is_staff", True)
         extra_fields.setdefault("is_superuser", True)
 
-        return self.create_user(email, username, phone_number, password, **extra_fields)
+        # Ensure role_id=1 exists or create it
+        super_admin_role, _ = UserRole.objects.get_or_create(id=1, defaults={"role": "Super Admin"})
+
+        return self.create_user(email, username, phone_number, password, role_id=super_admin_role.id, **extra_fields)
 
 
 class UserMaster(AbstractUser):
     ROLE_CHOICES = [
-        ("super_admin", "Super Admin"),
-        ("admin", "Admin"),
-        ("executive", "Executive"),
+        (1, "Super Admin"),
+        (2, "Admin"),
+        (3, "Executive"),
     ]
 
     email = models.EmailField(unique=True)
     phone_number = models.CharField(max_length=15, unique=True)
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default="executive")
+    # role = models.CharField(max_length=20, choices=ROLE_CHOICES, default="executive")
+    role = models.ForeignKey(UserRole, on_delete=models.SET_NULL, null=True, blank=True)  # Updated field
     social_account_id = models.CharField(max_length=255, blank=True, null=True)
     social_account_provider = models.CharField(max_length=50, blank=True, null=True)
     is_active = models.BooleanField(default=False)

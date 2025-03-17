@@ -5,11 +5,11 @@ from .models import *
 
 class UserMasterAdmin(UserAdmin):
     model = UserMaster
-    list_display = ("id","email", "username", "phone_number", "role", "is_active", "is_staff", "is_profile_update")
+    list_display = ("id", "email", "username", "phone_number", "get_role", "is_active", "is_staff", "is_profile_update")
     list_filter = ("role", "is_active", "is_staff", "is_superuser")
-    ordering = ("id", "email", "role")
-    
-    fieldsets = (           
+    ordering = ("id", "email")
+
+    fieldsets = (
         (None, {"fields": ("email", "username", "phone_number", "password", "role")}),
         (_("Personal Info"), {"fields": ("first_name", "last_name")}),
         (_("Social Accounts"), {"fields": ("social_account_id", "social_account_provider")}),
@@ -20,17 +20,25 @@ class UserMasterAdmin(UserAdmin):
     add_fieldsets = (
         (None, {
             "classes": ("wide",),
-            "fields": ("email", "username", "phone_number", "password1", "password2"),
+            "fields": ("email", "username", "phone_number", "password1", "password2", "role"),
         }),
     )
 
     search_fields = ("email", "username", "phone_number")
     ordering = ("email",)
 
+    def get_role(self, obj):
+        """Display role name instead of ForeignKey object"""
+        return obj.role.role if obj.role else "No Role Assigned"
+    get_role.short_description = "Role"  # Custom column name
+
     def save_model(self, request, obj, form, change):
         """Ensure password is hashed when changed in admin"""
-        if change and "password" in form.changed_data:
-            obj.set_password(obj.password)
+        if change:
+            if "password" in form.changed_data:
+                obj.set_password(obj.password)
+        else:
+            obj.set_password(obj.password)  # Hash password for new users
         obj.save()
 
 
@@ -126,3 +134,9 @@ admin.site.register(UserMaster, UserMasterAdmin)
 admin.site.register(UserProfile, UserProfileAdmin)
 admin.site.register(Outlet, OutletAdmin)
 admin.site.register(CustomerFeedback, CustomerFeedbackAdmin)
+
+@admin.register(UserRole)
+class ChannelAdmin(admin.ModelAdmin):
+    list_display = ("id", "role")  # Display ID and Name in the admin list
+    search_fields = ("role",)  # Allow searching by channel name
+    ordering = ("id",)  # Order by ID

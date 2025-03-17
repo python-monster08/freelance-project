@@ -244,7 +244,8 @@ class CampaignListCreateView(generics.ListCreateAPIView):
             return
         print(user.role, "Role")
         # ✅ Get outlets associated with the user
-        if user.role == "super_admin":
+        # if user.role == "super_admin":
+        if user.role.id == 1:
             # Super Admin can access all outlets in the campaign
             campaign_outlets = campaign.outlets.all()
             print("campaign_outlets All", campaign_outlets)

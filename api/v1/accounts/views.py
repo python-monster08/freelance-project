@@ -95,6 +95,8 @@ class UserLoginView(generics.GenericAPIView):
                 "status": True,
                 "message": "Login successful",
                 "is_profile_updated": is_profile_update,
+                "role_id": user.role.id,
+                "role_name": user.role.role,
                 "access": str(access_token),
                 "access_expires_at": access_token_expiry.strftime("%Y-%m-%d %H:%M:%S UTC"),
                 "refresh": str(refresh),
