@@ -254,3 +254,41 @@ class CustomerFeedbackUpdateSerializer(serializers.ModelSerializer):
             "emotions",
             "suggestions",
         ]
+
+
+import json
+# MembershipPlan Serializer
+class MembershipPlanSerializer(serializers.ModelSerializer):
+    features = serializers.JSONField(write_only=True)  # Accept JSON input directly
+
+    class Meta:
+        model = MembershipPlan
+        fields = ['id', 'name', 'price', 'is_active', 'features', 'campaign', 'referral_system', 'loyalty_points', 'feedback_analysis']
+
+    def create(self, validated_data):
+        """Handles both single and bulk creation"""
+        features = validated_data.pop("features", {})  # Extract `features` field
+
+        # Extract individual fields from features
+        validated_data["campaign"] = features.get("campaign", [])
+        validated_data["referral_system"] = features.get("referralSystem", False)
+        validated_data["loyalty_points"] = features.get("loyaltyPoints", False)
+        validated_data["feedback_analysis"] = features.get("feedbackAnalysis", False)
+
+        return MembershipPlan.objects.create(**validated_data)
+
+    def update(self, instance, validated_data):
+        """Update plan with nested features"""
+        features = validated_data.pop("features", {})
+
+        instance.campaign = features.get("campaign", instance.campaign)
+        instance.referral_system = features.get("referralSystem", instance.referral_system)
+        instance.loyalty_points = features.get("loyaltyPoints", instance.loyalty_points)
+        instance.feedback_analysis = features.get("feedbackAnalysis", instance.feedback_analysis)
+
+        instance.name = validated_data.get("name", instance.name)
+        instance.price = validated_data.get("price", instance.price)
+        instance.is_active = validated_data.get("is_active", instance.is_active)
+
+        instance.save()
+        return instance
