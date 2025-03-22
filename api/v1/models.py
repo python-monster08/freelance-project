@@ -317,6 +317,7 @@ class Campaign(models.Model):
 class MembershipPlan(models.Model):
     name = models.CharField(max_length=255, unique=True)
     price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    duration_days = models.IntegerField(default=0)
     is_active = models.BooleanField(default=True)
 
     # Features stored as JSON
