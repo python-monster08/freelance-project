@@ -6,7 +6,7 @@ from api.v1.accounts.views import *
 router = DefaultRouter()
 router.register(r'customer_feedback', CustomerFeedbackViewSet, basename='customer_feedback')
 # router.register(r'profile_update', UpdateProfileViewSet, basename='profile_update')
-
+router.register("membership_plans", MembershipPlanViewSet, basename="new_membership_plans")
 
 urlpatterns = [
     path('signup/', UserSignupView.as_view(), name='signup'),
