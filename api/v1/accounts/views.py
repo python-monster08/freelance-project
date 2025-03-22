@@ -903,57 +903,148 @@ class CustomerFeedbackViewSet(ModelViewSet):
 
 
 # MembershipPlan ViewSet
+# class MembershipPlanViewSet(ModelViewSet):
+#     queryset = MembershipPlan.objects.all()
+#     serializer_class = MembershipPlanSerializer
+
+#     def list(self, request, *args, **kwargs):
+#         """Custom response for retrieving all plans"""
+#         queryset = self.get_queryset()
+#         serializer = self.get_serializer(queryset, many=True)
+#         return Response({"status": True, "message": "Plans fetched successfully", "data": serializer.data}, status=status.HTTP_200_OK)
+
+#     def retrieve(self, request, *args, **kwargs):
+#         """Custom response for retrieving a single plan"""
+#         instance = self.get_object()
+#         serializer = self.get_serializer(instance)
+#         return Response({"status": True, "message": "Plan fetched successfully", "data": serializer.data}, status=status.HTTP_200_OK)
+
+#     def create(self, request, *args, **kwargs):
+#         """Handles both single and bulk creation"""
+#         data = request.data
+#         is_bulk = isinstance(data, list)  # Check if request contains a list
+
+#         if is_bulk:
+#             serializer = self.get_serializer(data=data, many=True)
+#         else:
+#             serializer = self.get_serializer(data=data)
+
+#         if serializer.is_valid():
+#             serializer.save()
+#             return Response({
+#                 "status": True,
+#                 "message": "Membership Plan(s) created successfully",
+#                 "data": serializer.data
+#             }, status=status.HTTP_201_CREATED)
+
+#         return Response({
+#             "status": False,
+#             "message": "Validation error",
+#             "data": serializer.errors
+#         }, status=status.HTTP_400_BAD_REQUEST)
+
+#     def update(self, request, *args, **kwargs):
+#         """Custom response for updating a plan"""
+#         instance = self.get_object()
+#         serializer = self.get_serializer(instance, data=request.data, partial=True)
+#         if serializer.is_valid():
+#             serializer.save()
+#             return Response({"status": True, "message": "Plan updated successfully", "data": serializer.data}, status=status.HTTP_200_OK)
+#         return Response({"status": False, "message": "Validation error", "data": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+#     def destroy(self, request, *args, **kwargs):
+#         """Custom response for deleting a plan"""
+#         instance = self.get_object()
+#         instance.delete()
+#         return Response({"status": True, "message": "Plan deleted successfully", "data": []}, status=status.HTTP_200_OK)
+
+
+
+
+
 class MembershipPlanViewSet(ModelViewSet):
-    queryset = MembershipPlan.objects.all()
-    serializer_class = MembershipPlanSerializer
+    queryset = MembershipPlan.objects.filter(is_deleted=False)
+
+    def get_serializer_class(self):
+        """Use different serializers for different actions"""
+        if self.action in ["create", "update", "partial_update"]:
+            return MembershipPlanCreateUpdateSerializer
+        return MembershipPlanListSerializer
 
     def list(self, request, *args, **kwargs):
-        """Custom response for retrieving all plans"""
+        """Retrieve all active membership plans with a consistent response"""
         queryset = self.get_queryset()
         serializer = self.get_serializer(queryset, many=True)
-        return Response({"status": True, "message": "Plans fetched successfully", "data": serializer.data}, status=status.HTTP_200_OK)
+        return Response({
+            "status": True,
+            "message": "Plans fetched successfully",
+            "data": serializer.data
+        }, status=status.HTTP_200_OK)
 
     def retrieve(self, request, *args, **kwargs):
-        """Custom response for retrieving a single plan"""
+        """Retrieve a single membership plan with a consistent response"""
         instance = self.get_object()
         serializer = self.get_serializer(instance)
-        return Response({"status": True, "message": "Plan fetched successfully", "data": serializer.data}, status=status.HTTP_200_OK)
+        return Response({
+            "status": True,
+            "message": "Plans fetched successfully",
+            "data": serializer.data
+        }, status=status.HTTP_200_OK)
 
     def create(self, request, *args, **kwargs):
-        """Handles both single and bulk creation"""
+        """Handles single and bulk plan creation"""
         data = request.data
-        is_bulk = isinstance(data, list)  # Check if request contains a list
 
-        if is_bulk:
+        if isinstance(data, list):  # Bulk creation
             serializer = self.get_serializer(data=data, many=True)
-        else:
+        else:  # Single creation
             serializer = self.get_serializer(data=data)
 
         if serializer.is_valid():
-            serializer.save()
+            instance = serializer.save()
+            response_data = MembershipPlanListSerializer(instance).data  # Serialize with correct structure
+
             return Response({
                 "status": True,
-                "message": "Membership Plan(s) created successfully",
-                "data": serializer.data
+                "message": "Membership Plan created successfully",
+                "data": response_data
             }, status=status.HTTP_201_CREATED)
 
         return Response({
             "status": False,
             "message": "Validation error",
-            "data": serializer.errors
+            "errors": serializer.errors
         }, status=status.HTTP_400_BAD_REQUEST)
 
     def update(self, request, *args, **kwargs):
-        """Custom response for updating a plan"""
+        """Update a membership plan"""
         instance = self.get_object()
         serializer = self.get_serializer(instance, data=request.data, partial=True)
+
         if serializer.is_valid():
-            serializer.save()
-            return Response({"status": True, "message": "Plan updated successfully", "data": serializer.data}, status=status.HTTP_200_OK)
-        return Response({"status": False, "message": "Validation error", "data": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+            instance = serializer.save()
+            response_data = MembershipPlanListSerializer(instance).data  # Serialize with correct structure
+
+            return Response({
+                "status": True,
+                "message": "Membership Plan updated successfully",
+                "data": response_data
+            }, status=status.HTTP_200_OK)
+
+        return Response({
+            "status": False,
+            "message": "Validation error",
+            "errors": serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+
 
     def destroy(self, request, *args, **kwargs):
-        """Custom response for deleting a plan"""
+        """Soft delete a membership plan by setting is_deleted = True"""
         instance = self.get_object()
-        instance.delete()
-        return Response({"status": True, "message": "Plan deleted successfully", "data": []}, status=status.HTTP_200_OK)
+        instance.is_deleted = True  # Mark as deleted
+        instance.save()
+
+        return Response({
+            "status": True,
+            "message": "Membership Plan deleted successfully"
+        }, status=status.HTTP_200_OK)

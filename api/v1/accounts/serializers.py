@@ -257,38 +257,95 @@ class CustomerFeedbackUpdateSerializer(serializers.ModelSerializer):
 
 
 import json
-# MembershipPlan Serializer
-class MembershipPlanSerializer(serializers.ModelSerializer):
-    features = serializers.JSONField(write_only=True)  # Accept JSON input directly
+# # MembershipPlan Serializer
+# class MembershipPlanSerializer(serializers.ModelSerializer):
+#     features = serializers.JSONField(write_only=True)  # Accept JSON input directly
+
+#     class Meta:
+#         model = MembershipPlan
+#         fields = ['id', 'name', 'price', 'is_active', 'features', 'campaign', 'referral_system', 'loyalty_points', 'feedback_analysis']
+
+#     def create(self, validated_data):
+#         """Handles both single and bulk creation"""
+#         features = validated_data.pop("features", {})  # Extract `features` field
+
+#         # Extract individual fields from features
+#         validated_data["campaign"] = features.get("campaign", [])
+#         validated_data["referral_system"] = features.get("referralSystem", False)
+#         validated_data["loyalty_points"] = features.get("loyaltyPoints", False)
+#         validated_data["feedback_analysis"] = features.get("feedbackAnalysis", False)
+
+#         return MembershipPlan.objects.create(**validated_data)
+
+#     def update(self, instance, validated_data):
+#         """Update plan with nested features"""
+#         features = validated_data.pop("features", {})
+
+#         instance.campaign = features.get("campaign", instance.campaign)
+#         instance.referral_system = features.get("referralSystem", instance.referral_system)
+#         instance.loyalty_points = features.get("loyaltyPoints", instance.loyalty_points)
+#         instance.feedback_analysis = features.get("feedbackAnalysis", instance.feedback_analysis)
+
+#         instance.name = validated_data.get("name", instance.name)
+#         instance.price = validated_data.get("price", instance.price)
+#         instance.is_active = validated_data.get("is_active", instance.is_active)
+
+#         instance.save()
+#         return instance
+
+
+# Serializer for listing plans (GET)
+class MembershipPlanListSerializer(serializers.ModelSerializer):
+    features = serializers.SerializerMethodField()
 
     class Meta:
         model = MembershipPlan
-        fields = ['id', 'name', 'price', 'is_active', 'features', 'campaign', 'referral_system', 'loyalty_points', 'feedback_analysis']
+        fields = ["id", "name", "price", "duration_days", "is_active", "features"]
+
+    def get_features(self, obj):
+        """Convert model fields into a nested features JSON"""
+        return {
+            "campaign": obj.campaign,
+            "referral_system": obj.referral_system,
+            "loyalty_points": obj.loyalty_points,
+            "feedback_analysis": obj.feedback_analysis,
+        }
+
+# Serializer for creating and updating plans (POST & PUT)
+class MembershipPlanCreateUpdateSerializer(MembershipPlanListSerializer):
+    features = serializers.JSONField(write_only=True)  # Accept features as JSON input
+
+    class Meta:
+        model = MembershipPlan
+        fields = ["id", "name", "price", "duration_days", "is_active", "features"]
 
     def create(self, validated_data):
-        """Handles both single and bulk creation"""
-        features = validated_data.pop("features", {})  # Extract `features` field
-
-        # Extract individual fields from features
-        validated_data["campaign"] = features.get("campaign", [])
-        validated_data["referral_system"] = features.get("referralSystem", False)
-        validated_data["loyalty_points"] = features.get("loyaltyPoints", False)
-        validated_data["feedback_analysis"] = features.get("feedbackAnalysis", False)
-
-        return MembershipPlan.objects.create(**validated_data)
-
-    def update(self, instance, validated_data):
-        """Update plan with nested features"""
+        """Create a new MembershipPlan"""
         features = validated_data.pop("features", {})
 
-        instance.campaign = features.get("campaign", instance.campaign)
-        instance.referral_system = features.get("referralSystem", instance.referral_system)
-        instance.loyalty_points = features.get("loyaltyPoints", instance.loyalty_points)
-        instance.feedback_analysis = features.get("feedbackAnalysis", instance.feedback_analysis)
+        validated_data["campaign"] = features.get("campaign", [])
+        validated_data["referral_system"] = features.get("referral_system", False)
+        validated_data["loyalty_points"] = features.get("loyalty_points", False)
+        validated_data["feedback_analysis"] = features.get("feedback_analysis", False)
+
+        instance = MembershipPlan.objects.create(**validated_data)
+
+        return instance  # Returning instance ensures full data serialization
+
+    def update(self, instance, validated_data):
+        """Update an existing MembershipPlan"""
+        features = validated_data.pop("features", {})
 
         instance.name = validated_data.get("name", instance.name)
         instance.price = validated_data.get("price", instance.price)
+        instance.duration_days = validated_data.get("duration_days", instance.duration_days)
         instance.is_active = validated_data.get("is_active", instance.is_active)
+
+        instance.campaign = features.get("campaign", instance.campaign)
+        instance.referral_system = features.get("referral_system", instance.referral_system)
+        instance.loyalty_points = features.get("loyalty_points", instance.loyalty_points)
+        instance.feedback_analysis = features.get("feedback_analysis", instance.feedback_analysis)
 
         instance.save()
         return instance
+
