@@ -349,3 +349,14 @@ class MembershipPlanCreateUpdateSerializer(MembershipPlanListSerializer):
         instance.save()
         return instance
 
+class SupportSystemGetSerializer(serializers.ModelSerializer):
+    plan_name = serializers.CharField(source="plan.name", read_only=True)  # Fetching related plan name
+
+    class Meta:
+        model = SupportSystem
+        fields = ["id", "plan", "plan_name", "support", "training", "staff_re_training", "dedicated_poc"]
+
+class SupportSystemCreateUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SupportSystem
+        fields = ["id", "plan", "support", "training", "staff_re_training", "dedicated_poc"]

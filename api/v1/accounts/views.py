@@ -1048,3 +1048,197 @@ class MembershipPlanViewSet(ModelViewSet):
             "status": True,
             "message": "Membership Plan deleted successfully"
         }, status=status.HTTP_200_OK)
+
+
+# Support System
+
+class SupportSystemViewSet(ModelViewSet):
+    """CRUD API for Support System"""
+
+    queryset = SupportSystem.objects.filter(is_deleted=False)
+
+    def get_serializer_class(self):
+        """Use different serializers for GET and POST/PATCH"""
+        if self.request.method == "GET":
+            return SupportSystemGetSerializer
+        return SupportSystemCreateUpdateSerializer
+
+    def list(self, request, *args, **kwargs):
+        """Custom list method to return structured response"""
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+
+        # Convert the response to match the expected structure
+        support_table = [
+            {
+                item["plan_name"]: {
+                    "support": item["support"],
+                    "training": item["training"],
+                    "staff_re_training": item["staff_re_training"],
+                    "dedicated_poc": item["dedicated_poc"]
+                }
+            }
+            for item in serializer.data
+        ]
+
+        return Response(
+            {"status": True, "message": "Data list", "data": support_table},
+            status=status.HTTP_200_OK
+        )
+
+    def create(self, request, *args, **kwargs):
+        """Handle both single and bulk creation"""
+        data = request.data
+
+        # Check if the request contains a list (bulk insert) or a single object
+        if isinstance(data, list):
+            support_instances = []
+            response_data = []
+
+            for entry in data:
+                plan_id = entry.get("plan")
+
+                try:
+                    plan = MembershipPlan.objects.get(id=plan_id)
+                except MembershipPlan.DoesNotExist:
+                    return Response(
+                        {"status": False, "message": f"Invalid plan ID: {plan_id}", "data": []},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                entry["plan"] = plan.id  # Set the correct plan ID
+                serializer = self.get_serializer(data=entry)
+
+                if serializer.is_valid():
+                    support_instance = serializer.save()
+                    support_instances.append(support_instance)
+
+                    # Include plan_name in response
+                    response_data.append({
+                        **serializer.data,
+                        "plan_name": plan.name
+                    })
+                else:
+                    return Response(
+                        {"status": False, "message": "Validation failed!", "data": serializer.errors},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+            return Response(
+                {"status": True, "message": "Support Systems Created!", "data": response_data},
+                status=status.HTTP_201_CREATED
+            )
+
+        # If it's a single object
+        plan_id = data.get("plan")
+        try:
+            plan = MembershipPlan.objects.get(id=plan_id)
+        except MembershipPlan.DoesNotExist:
+            return Response(
+                {"status": False, "message": "Invalid plan ID", "data": []},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        data["plan"] = plan.id  # Set the correct plan ID
+        serializer = self.get_serializer(data=data)
+
+        if serializer.is_valid():
+            support_instance = serializer.save()
+
+            return Response(
+                {
+                    "status": True,
+                    "message": "Support System Created!",
+                    "data": {**serializer.data, "plan_name": plan.name}
+                },
+                status=status.HTTP_201_CREATED
+            )
+
+        return Response(
+            {"status": False, "message": "Failed to create", "data": serializer.errors},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    def update(self, request, *args, **kwargs):
+        """Handle both single and bulk updates using PUT and PATCH"""
+        data = request.data
+
+        # Check if the request contains a list (bulk update) or a single object
+        if isinstance(data, list):
+            updated_instances = []
+            response_data = []
+
+            for entry in data:
+                support_id = entry.get("id")  # SupportSystem instance ID
+
+                if not support_id:
+                    return Response(
+                        {"status": False, "message": "ID is required for updating records."},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                try:
+                    support_instance = SupportSystem.objects.get(id=support_id)
+                except SupportSystem.DoesNotExist:
+                    return Response(
+                        {"status": False, "message": f"SupportSystem ID {support_id} not found."},
+                        status=status.HTTP_404_NOT_FOUND
+                    )
+
+                serializer = self.get_serializer(support_instance, data=entry, partial=("PATCH" in request.method))
+
+                if serializer.is_valid():
+                    updated_instance = serializer.save()
+                    updated_instances.append(updated_instance)
+
+                    response_data.append({
+                        **serializer.data,
+                        "plan_name": updated_instance.plan.name
+                    })
+                else:
+                    return Response(
+                        {"status": False, "message": "Validation failed!", "data": serializer.errors},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+            return Response(
+                {"status": True, "message": "Support Systems Updated!", "data": response_data},
+                status=status.HTTP_200_OK
+            )
+
+        # If updating a single object
+        support_id = kwargs.get("pk")
+        if not support_id:
+            return Response(
+                {"status": False, "message": "ID is required for updating records."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            support_instance = SupportSystem.objects.get(id=support_id)
+        except SupportSystem.DoesNotExist:
+            return Response(
+                {"status": False, "message": "SupportSystem ID not found."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        serializer = self.get_serializer(support_instance, data=data, partial=("PATCH" in request.method))
+
+        if serializer.is_valid():
+            updated_instance = serializer.save()
+            return Response(
+                {"status": True, "message": "Support System Updated!", "data": {**serializer.data, "plan_name": updated_instance.plan.name}},
+                status=status.HTTP_200_OK
+            )
+
+        return Response(
+            {"status": False, "message": "Update failed!", "data": serializer.errors},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    def destroy(self, request, *args, **kwargs):
+        """Soft delete instead of hard delete"""
+        instance = self.get_object()
+        instance.is_deleted = True
+        instance.save()
+        return Response({"status": True, "message": "Support System Deleted!", "data": []}, status=status.HTTP_200_OK)

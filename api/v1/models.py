@@ -382,7 +382,24 @@ class MembershipPlan(models.Model):
     def __str__(self):
         return self.name
 
+class SupportSystem(models.Model):
+    """Model to store support system details"""
+    plan = models.ForeignKey(MembershipPlan, on_delete=models.CASCADE, related_name="support_systems")
+    support = models.BooleanField(default=False)
+    training = models.BooleanField(default=False)
+    staff_re_training = models.BooleanField(default=False)
+    dedicated_poc = models.BooleanField(default=False)
+    is_deleted = models.BooleanField(default=False)
+    created_on = models.DateTimeField(auto_now_add=True)
+    updated_on = models.DateTimeField(auto_now=True)
 
+    def __str__(self):
+        return self.plan.name
+
+    class Meta:
+        db_table = "support_system"
+        verbose_name = "Support System"
+        verbose_name_plural = "Support Systems"
 
 # {
 # "campaign_channel":[1,2],   
