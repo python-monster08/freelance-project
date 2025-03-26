@@ -350,10 +350,50 @@ class MembershipPlanCreateUpdateSerializer(MembershipPlanListSerializer):
         return instance
     
     
+# class SupportSystemGetSerializer(serializers.ModelSerializer):
+#     """Serializer for retrieving SupportSystem records"""
+#     plan_name = serializers.CharField(source="plan.name", read_only=True)  # Fetching related plan name
+
+#     plan_support = serializers.SerializerMethodField()
+
+#     class Meta:
+#         model = SupportSystem
+#         fields = ["id", "plan", "plan_name", "plan_support"]
+
+#     def get_plan_support(self, instance):
+#         """Returns structured plan support details"""
+#         return {
+#             "support": instance.support,
+#             "training": instance.training,
+#             "staff_re_training": instance.staff_re_training,
+#             "dedicated_poc": instance.dedicated_poc
+#         }
+
+
+# class SupportSystemCreateUpdateSerializer(serializers.ModelSerializer):
+#     """Serializer for creating/updating SupportSystem records"""
+
+#     class Meta:
+#         model = SupportSystem
+#         fields = ["plan", "support", "training", "staff_re_training", "dedicated_poc"]
+
+#     def validate_plan(self, value):
+#         """Ensure the plan exists and is not deleted"""
+#         if not MembershipPlan.objects.filter(id=value.id, is_deleted=False).exists():
+#             raise serializers.ValidationError("Invalid or deleted Plan ID")
+#         return value
+
+#     def to_representation(self, instance):
+#         """Ensure the response includes plan_name"""
+#         data = super().to_representation(instance)
+#         data["plan_name"] = instance.plan.name if instance.plan else None  # Handle cases where plan might be null
+#         return data
+
+
+
 class SupportSystemGetSerializer(serializers.ModelSerializer):
     """Serializer for retrieving SupportSystem records"""
     plan_name = serializers.CharField(source="plan.name", read_only=True)  # Fetching related plan name
-
     plan_support = serializers.SerializerMethodField()
 
     class Meta:
@@ -370,8 +410,8 @@ class SupportSystemGetSerializer(serializers.ModelSerializer):
         }
 
 
-class SupportSystemCreateUpdateSerializer(serializers.ModelSerializer):
-    """Serializer for creating/updating SupportSystem records"""
+class SupportSystemCreateSerializer(serializers.ModelSerializer):
+    """Serializer for creating SupportSystem records"""
 
     class Meta:
         model = SupportSystem
@@ -386,5 +426,47 @@ class SupportSystemCreateUpdateSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         """Ensure the response includes plan_name"""
         data = super().to_representation(instance)
-        data["plan_name"] = instance.plan.name if instance.plan else None  # Handle cases where plan might be null
+        data["plan_name"] = instance.plan.name if instance.plan else None
         return data
+
+
+class SupportSystemUpdateSerializer(serializers.ModelSerializer):
+    """Serializer for updating SupportSystem records"""
+    
+    plan_support = serializers.DictField(child=serializers.BooleanField(), write_only=True)
+
+    class Meta:
+        model = SupportSystem
+        fields = ["plan_support"]
+
+    def update(self, instance, validated_data):
+        """Update support system fields based on provided data"""
+        plan_support_data = validated_data.get("plan_support", {})
+
+        # Mapping request keys to model fields
+        field_map = {
+            "support": "support",
+            "free_training": "training",
+            "free_staff_re_training": "staff_re_training",
+            "dedicated_poc": "dedicated_poc"
+        }
+
+        for request_field, model_field in field_map.items():
+            if request_field in plan_support_data:
+                setattr(instance, model_field, plan_support_data[request_field])
+
+        instance.save()
+        return instance
+
+    def to_representation(self, instance):
+        """Return structured response"""
+        return {
+            "id": instance.id,
+            "plan_name": instance.plan.name if instance.plan else None,
+            "plan_support": {
+                "support": instance.support,
+                "training": instance.training,
+                "staff_re_training": instance.staff_re_training,
+                "dedicated_poc": instance.dedicated_poc,
+            }
+        }
