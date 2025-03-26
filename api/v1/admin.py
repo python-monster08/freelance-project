@@ -140,3 +140,25 @@ class ChannelAdmin(admin.ModelAdmin):
     list_display = ("id", "role")  # Display ID and Name in the admin list
     search_fields = ("role",)  # Allow searching by channel name
     ordering = ("id",)  # Order by ID
+
+
+@admin.register(SupportSystem)
+class SupportSystemAdmin(admin.ModelAdmin):
+    list_display = ("id", "plan", "support", "training", "staff_re_training", "dedicated_poc", "is_deleted", "created_on", "updated_on")
+    list_filter = ("support", "training", "staff_re_training", "dedicated_poc", "is_deleted")
+    search_fields = ("plan__name",)
+    ordering = ("-created_on",)
+    list_per_page = 20
+
+    def get_queryset(self, request):
+        """Exclude soft-deleted records by default"""
+        return super().get_queryset(request).filter(is_deleted=False)
+
+    def delete_model(self, request, obj):
+        """Override delete to implement soft delete"""
+        obj.is_deleted = True
+        obj.save()
+
+    def delete_queryset(self, request, queryset):
+        """Override bulk delete to implement soft delete"""
+        queryset.update(is_deleted=True)
