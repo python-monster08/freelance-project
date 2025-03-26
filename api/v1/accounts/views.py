@@ -1071,66 +1071,52 @@ class SupportSystemViewSet(ModelViewSet):
         # Convert the response to match the expected structure
         support_table = [
             {
-                item["plan_name"]: {
-                    "support": item["support"],
-                    "training": item["training"],
-                    "staff_re_training": item["staff_re_training"],
-                    "dedicated_poc": item["dedicated_poc"]
-                }
+                "id": item["id"],
+                "plan_name": item["plan_name"],
+                "plan_support": item["plan_support"]
             }
             for item in serializer.data
         ]
 
         return Response(
-            {"status": True, "message": "Data list", "data": support_table},
+            {"status": True, "message": "Membership Plan Support list retrieve successfully", "data": support_table},
+            status=status.HTTP_200_OK
+        )
+
+
+    def retrieve(self, request, pk=None, *args, **kwargs):
+        """Retrieve a single support system with structured response"""
+        try:
+            support_instance = self.get_object()
+        except SupportSystem.DoesNotExist:
+            return Response(
+                {"status": False, "message": f"SupportSystem ID {pk} not found."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        return Response(
+            {
+                "status": True,
+                "message": "Support System retrieved successfully!",
+                "data": {
+                    "id": support_instance.id,
+                    "plan_name": support_instance.plan.name,
+                    "plan_support": {
+                        "support": support_instance.support,
+                        "training": support_instance.training,
+                        "staff_re_training": support_instance.staff_re_training,
+                        "dedicated_poc": support_instance.dedicated_poc,
+                    }
+                }
+            },
             status=status.HTTP_200_OK
         )
 
     def create(self, request, *args, **kwargs):
-        """Handle both single and bulk creation"""
+        """Create a new support system with structured response"""
         data = request.data
-
-        # Check if the request contains a list (bulk insert) or a single object
-        if isinstance(data, list):
-            support_instances = []
-            response_data = []
-
-            for entry in data:
-                plan_id = entry.get("plan")
-
-                try:
-                    plan = MembershipPlan.objects.get(id=plan_id)
-                except MembershipPlan.DoesNotExist:
-                    return Response(
-                        {"status": False, "message": f"Invalid plan ID: {plan_id}", "data": []},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-
-                entry["plan"] = plan.id  # Set the correct plan ID
-                serializer = self.get_serializer(data=entry)
-
-                if serializer.is_valid():
-                    support_instance = serializer.save()
-                    support_instances.append(support_instance)
-
-                    # Include plan_name in response
-                    response_data.append({
-                        **serializer.data,
-                        "plan_name": plan.name
-                    })
-                else:
-                    return Response(
-                        {"status": False, "message": "Validation failed!", "data": serializer.errors},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-
-            return Response(
-                {"status": True, "message": "Support Systems Created!", "data": response_data},
-                status=status.HTTP_201_CREATED
-            )
-
-        # If it's a single object
         plan_id = data.get("plan")
+
         try:
             plan = MembershipPlan.objects.get(id=plan_id)
         except MembershipPlan.DoesNotExist:
@@ -1139,103 +1125,88 @@ class SupportSystemViewSet(ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        data["plan"] = plan.id  # Set the correct plan ID
+        data["plan"] = plan.id  # Ensure correct plan ID
         serializer = self.get_serializer(data=data)
 
         if serializer.is_valid():
             support_instance = serializer.save()
-
             return Response(
                 {
                     "status": True,
                     "message": "Support System Created!",
-                    "data": {**serializer.data, "plan_name": plan.name}
+                    "data": {
+                        "id": support_instance.id,
+                        "plan_name": plan.name,
+                        "plan_support": {
+                            "support": support_instance.support,
+                            "training": support_instance.training,
+                            "staff_re_training": support_instance.staff_re_training,
+                            "dedicated_poc": support_instance.dedicated_poc,
+                        }
+                    }
                 },
                 status=status.HTTP_201_CREATED
             )
 
         return Response(
-            {"status": False, "message": "Failed to create", "data": serializer.errors},
+            {"status": False, "message": "Validation failed!", "data": serializer.errors},
             status=status.HTTP_400_BAD_REQUEST
         )
 
-    def update(self, request, *args, **kwargs):
-        """Handle both single and bulk updates using PUT and PATCH"""
-        data = request.data
 
-        # Check if the request contains a list (bulk update) or a single object
-        if isinstance(data, list):
-            updated_instances = []
-            response_data = []
-
-            for entry in data:
-                support_id = entry.get("id")  # SupportSystem instance ID
-
-                if not support_id:
-                    return Response(
-                        {"status": False, "message": "ID is required for updating records."},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-
-                try:
-                    support_instance = SupportSystem.objects.get(id=support_id)
-                except SupportSystem.DoesNotExist:
-                    return Response(
-                        {"status": False, "message": f"SupportSystem ID {support_id} not found."},
-                        status=status.HTTP_404_NOT_FOUND
-                    )
-
-                serializer = self.get_serializer(support_instance, data=entry, partial=("PATCH" in request.method))
-
-                if serializer.is_valid():
-                    updated_instance = serializer.save()
-                    updated_instances.append(updated_instance)
-
-                    response_data.append({
-                        **serializer.data,
-                        "plan_name": updated_instance.plan.name
-                    })
-                else:
-                    return Response(
-                        {"status": False, "message": "Validation failed!", "data": serializer.errors},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-
-            return Response(
-                {"status": True, "message": "Support Systems Updated!", "data": response_data},
-                status=status.HTTP_200_OK
-            )
-
-        # If updating a single object
-        support_id = kwargs.get("pk")
-        if not support_id:
-            return Response(
-                {"status": False, "message": "ID is required for updating records."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
+    def update(self, request, pk=None, *args, **kwargs):
+        """Handles PUT (full update) & PATCH (partial update) requests for Support System records"""
         try:
-            support_instance = SupportSystem.objects.get(id=support_id)
+            support_instance = self.get_object()
         except SupportSystem.DoesNotExist:
             return Response(
-                {"status": False, "message": "SupportSystem ID not found."},
+                {"status": False, "message": f"SupportSystem ID {pk} not found."},
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        serializer = self.get_serializer(support_instance, data=data, partial=("PATCH" in request.method))
+        # Extract `plan_support` object from request
+        plan_support_data = request.data.get("plan_support", {})
 
-        if serializer.is_valid():
-            updated_instance = serializer.save()
-            return Response(
-                {"status": True, "message": "Support System Updated!", "data": {**serializer.data, "plan_name": updated_instance.plan.name}},
-                status=status.HTTP_200_OK
-            )
+        # Check if it's a full update (PUT) or partial update (PATCH)
+        if request.method == "PUT":
+            required_fields = {"support", "free_training", "free_staff_re_training", "dedicated_poc"}
+            if not required_fields.issubset(plan_support_data.keys()):
+                return Response(
+                    {"status": False, "message": "PUT request requires all plan_support fields"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        # Map request data to model fields
+        update_fields = {
+            "support": plan_support_data.get("support", support_instance.support),
+            "training": plan_support_data.get("free_training", support_instance.training),
+            "staff_re_training": plan_support_data.get("free_staff_re_training", support_instance.staff_re_training),
+            "dedicated_poc": plan_support_data.get("dedicated_poc", support_instance.dedicated_poc),
+        }
+
+        # Update the instance
+        for field, value in update_fields.items():
+            setattr(support_instance, field, value)
+
+        support_instance.save()
 
         return Response(
-            {"status": False, "message": "Update failed!", "data": serializer.errors},
-            status=status.HTTP_400_BAD_REQUEST
+            {
+                "status": True,
+                "message": "Support System Updated!",
+                "data": {
+                    "id": support_instance.id,
+                    "plan_name": support_instance.plan.name,
+                    "plan_support": {
+                        "support": support_instance.support,
+                        "training": support_instance.training,
+                        "staff_re_training": support_instance.staff_re_training,
+                        "dedicated_poc": support_instance.dedicated_poc,
+                    }
+                }
+            },
+            status=status.HTTP_200_OK
         )
-
     def destroy(self, request, *args, **kwargs):
         """Soft delete instead of hard delete"""
         instance = self.get_object()
