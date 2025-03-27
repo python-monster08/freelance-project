@@ -446,8 +446,8 @@ class SupportSystemUpdateSerializer(serializers.ModelSerializer):
         # Mapping request keys to model fields
         field_map = {
             "support": "support",
-            "free_training": "training",
-            "free_staff_re_training": "staff_re_training",
+            "training": "training",
+            "staff_re_training": "staff_re_training",
             "dedicated_poc": "dedicated_poc"
         }
 
