@@ -386,28 +386,20 @@ class MembershipPlan(models.Model):
 
         # Get or create SupportSystem
         support_system, created = SupportSystem.objects.get_or_create(
-            plan=self, 
+            plan=self,
             defaults={
                 "support": False,
                 "training": False,
                 "staff_re_training": False,
                 "dedicated_poc": False,
-                "is_deleted": True if not self.is_active else self.is_deleted,  # Logic Update
+                "is_deleted": not self.is_active or self.is_deleted,  # Better clarity
             }
         )
 
         # Update existing SupportSystem's is_deleted status
         if not created:
-            if not self.is_active and not self.is_deleted:
-                support_system.is_deleted = True  # Make SupportSystem soft deleted
-            else:
-                support_system.is_deleted = self.is_deleted  # Sync with MembershipPlan
-            
+            support_system.is_deleted = not self.is_active or self.is_deleted
             support_system.save()
-
-    def __str__(self):
-        return self.name
-
 
 class SupportSystem(models.Model):
     """Model to store support system details"""

@@ -767,7 +767,7 @@ class CustomerFeedbackViewSet(ModelViewSet):
 
 class MembershipPlanViewSet(ModelViewSet):
     # queryset = MembershipPlan.objects.filter(is_deleted=False)
-    queryset = MembershipPlan.objects.filter(is_active=True, is_deleted=False)
+    queryset = MembershipPlan.objects.filter(is_deleted=False)
 
     def get_serializer_class(self):
         """Use different serializers for different actions"""
