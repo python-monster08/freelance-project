@@ -149,10 +149,18 @@ class MembershipPlanAdmin(admin.ModelAdmin):
     readonly_fields = ('created_on', 'updated_on')
 
     def save_model(self, request, obj, form, change):
-        """Ensure SupportSystem is created for existing plans when saving."""
+        """Ensure SupportSystem is created for active and non-deleted plans when saving."""
         super().save_model(request, obj, form, change)  # Save MembershipPlan
-        SupportSystem.objects.get_or_create(plan=obj)  # Create SupportSystem if missing
 
+        support_system, created = SupportSystem.objects.get_or_create(plan=obj)
+
+        # If MembershipPlan is deleted, also delete SupportSystem
+        if obj.is_deleted:
+            support_system.is_deleted = True
+        else:
+            support_system.is_deleted = False  # Reactivate if plan is reactivated
+
+        support_system.save()
 
 
 @admin.register(SupportSystem)

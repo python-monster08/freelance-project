@@ -170,7 +170,7 @@ class OutletListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         """Return only the logged-in user's outlets."""
-        return Outlet.objects.filter(user_profile=self.request.user.profile)
+        return Outlet.objects.filter(user_profile=self.request.user.profile, is_deleted=False).order_by('-id')
 
     def list(self, request, *args, **kwargs):
         """Custom list method to return structured response."""
@@ -228,7 +228,7 @@ class OutletDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_queryset(self):
         """Ensure users can only update/delete their own outlets"""
-        data =  Outlet.objects.filter(user_profile=self.request.user.profile)
+        data =  Outlet.objects.filter(user_profile=self.request.user.profile, is_deleted=False)
         return Response({"status": True, "data": OutletSerializer(data, many=True).data}, status=status.HTTP_200_OK)
 
     def update(self, request, *args, **kwargs):
@@ -272,144 +272,6 @@ class OutletDetailView(generics.RetrieveUpdateDestroyAPIView):
                 "message": str(e)
             }, status=status.HTTP_400_BAD_REQUEST)
 
-# class UserProfileView(generics.RetrieveUpdateAPIView):
-#     serializer_class = UserProfileSerializer
-#     permission_classes = [IsAuthenticated]
-
-#     def get_serializer_class(self):
-#         if self.action in ["update", "partial_update"]:
-#             return CustomerFeedbackUpdateSerializer
-#         return CustomerFeedbackListSerializer
-
-#     def get_object(self):
-#         try:
-#             return self.request.user.profile
-#         except Exception as e:
-#             return Response({
-#                 "status": False,
-#                 "message": str(e)
-#             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-#     def retrieve(self, request, *args, **kwargs):
-#         """Retrieve user profile with additional details."""
-#         try:
-#             user = request.user
-#             profile = user.profile
-#             serializer = self.get_serializer(profile)
-
-#             return Response({
-#                 "status": True,
-#                 "message": "User profile retrieved successfully",
-#                 "data": {
-#                     "username": user.username,
-#                     "email": user.email,
-#                     "first_name": user.first_name,
-#                     "last_name": user.last_name,
-#                     "profile": serializer.data
-#                 }
-#             }, status=status.HTTP_200_OK)
-#         except Exception as e:
-#             return Response({
-#                 "status": False,
-#                 "message": str(e)
-#             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-#     def update(self, request, *args, **kwargs):
-#         """Update user profile including password change."""
-#         try:
-#             user = request.user
-#             data = request.data
-
-#             # Update User fields
-#             user.username = data.get("username", user.username)
-#             user.email = data.get("email", user.email)
-#             user.first_name = data.get("first_name", user.first_name)
-#             user.last_name = data.get("last_name", user.last_name)
-#             user.is_profile_update = True  # Mark profile as complete
-
-#             # Password update logic
-#             if "old_password" in data and "new_password" in data:
-#                 old_password = data["old_password"]
-#                 new_password = data["new_password"]
-
-#                 if not check_password(old_password, user.password):
-#                     return Response({
-#                         "status": False,
-#                         "message": "Old password is incorrect."
-#                     }, status=status.HTTP_400_BAD_REQUEST)
-
-#                 user.set_password(new_password)
-
-#             user.save()
-
-#             # Update Profile fields
-#             profile = user.profile
-#             serializer = self.get_serializer(profile, data=request.data, partial=True)
-#             if serializer.is_valid():
-#                 serializer.save()
-#                 return Response({
-#                     "status": True,
-#                     "message": "User profile updated successfully",
-#                     "data": {
-#                         "username": user.username,
-#                         "email": user.email,
-#                         "first_name": user.first_name,
-#                         "last_name": user.last_name,
-#                         "profile": serializer.data
-#                     }
-#                 }, status=status.HTTP_200_OK)
-
-#             return Response({
-#                 "status": False,
-#                 "message": str(serializer.errors)
-#             }, status=status.HTTP_400_BAD_REQUEST)
-
-#         except Exception as e:
-#             return Response({
-#                 "status": False,
-#                 "message": str(e)
-#             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-# class UpdateProfileView(generics.RetrieveUpdateDestroyAPIView):
-#     """
-#     API for retrieving, updating, and soft deleting user profiles
-#     - Retrieve includes UserProfile + Outlets + UserMaster fields
-#     - Update modifies profile but NOT outlets
-#     - Delete only sets `is_deleted = True`
-#     """
-#     serializer_class = UpdateProfileSerializer
-#     permission_classes = [IsAuthenticated]
-#     parser_classes = [MultiPartParser, FormParser, JSONParser]  # Supports file uploads
-
-#     def get_object(self):
-#         """Retrieve the authenticated user's profile, ensuring it exists"""
-#         return get_object_or_404(UserProfile, user=self.request.user, is_deleted=False)
-
-    
-#     def perform_update(self, serializer):
-#         """Update UserMaster fields separately before saving UserProfile"""
-#         profile = serializer.instance
-#         user = profile.user
-
-#         user_data = self.request.data
-#         user.first_name = user_data.get("first_name", user.first_name)
-#         user.last_name = user_data.get("last_name", user.last_name)
-#         user.phone_number = user_data.get("phone_number", user.phone_number)
-#         user.is_profile_update = True
-#         user.save()
-
-#         # Remove number_of_outlets update logic
-#         profile_data = serializer.validated_data
-
-#         serializer.save(**profile_data)
-
-#     def perform_destroy(self, instance):
-#         """Soft delete profile (set is_deleted = True)"""
-#         instance.is_deleted = True
-#         instance.user.is_active = False
-#         instance.user.save()
-#         instance.save()
-#         return Response({"message": "Profile deleted successfully"}, status=status.HTTP_204_NO_CONTENT)
 
 
 class UpdateProfileView(generics.RetrieveUpdateDestroyAPIView):
@@ -902,68 +764,10 @@ class CustomerFeedbackViewSet(ModelViewSet):
 
 
 
-# MembershipPlan ViewSet
-# class MembershipPlanViewSet(ModelViewSet):
-#     queryset = MembershipPlan.objects.all()
-#     serializer_class = MembershipPlanSerializer
-
-#     def list(self, request, *args, **kwargs):
-#         """Custom response for retrieving all plans"""
-#         queryset = self.get_queryset()
-#         serializer = self.get_serializer(queryset, many=True)
-#         return Response({"status": True, "message": "Plans fetched successfully", "data": serializer.data}, status=status.HTTP_200_OK)
-
-#     def retrieve(self, request, *args, **kwargs):
-#         """Custom response for retrieving a single plan"""
-#         instance = self.get_object()
-#         serializer = self.get_serializer(instance)
-#         return Response({"status": True, "message": "Plan fetched successfully", "data": serializer.data}, status=status.HTTP_200_OK)
-
-#     def create(self, request, *args, **kwargs):
-#         """Handles both single and bulk creation"""
-#         data = request.data
-#         is_bulk = isinstance(data, list)  # Check if request contains a list
-
-#         if is_bulk:
-#             serializer = self.get_serializer(data=data, many=True)
-#         else:
-#             serializer = self.get_serializer(data=data)
-
-#         if serializer.is_valid():
-#             serializer.save()
-#             return Response({
-#                 "status": True,
-#                 "message": "Membership Plan(s) created successfully",
-#                 "data": serializer.data
-#             }, status=status.HTTP_201_CREATED)
-
-#         return Response({
-#             "status": False,
-#             "message": "Validation error",
-#             "data": serializer.errors
-#         }, status=status.HTTP_400_BAD_REQUEST)
-
-#     def update(self, request, *args, **kwargs):
-#         """Custom response for updating a plan"""
-#         instance = self.get_object()
-#         serializer = self.get_serializer(instance, data=request.data, partial=True)
-#         if serializer.is_valid():
-#             serializer.save()
-#             return Response({"status": True, "message": "Plan updated successfully", "data": serializer.data}, status=status.HTTP_200_OK)
-#         return Response({"status": False, "message": "Validation error", "data": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
-
-#     def destroy(self, request, *args, **kwargs):
-#         """Custom response for deleting a plan"""
-#         instance = self.get_object()
-#         instance.delete()
-#         return Response({"status": True, "message": "Plan deleted successfully", "data": []}, status=status.HTTP_200_OK)
-
-
-
-
 
 class MembershipPlanViewSet(ModelViewSet):
-    queryset = MembershipPlan.objects.filter(is_deleted=False)
+    # queryset = MembershipPlan.objects.filter(is_deleted=False)
+    queryset = MembershipPlan.objects.filter(is_active=True, is_deleted=False)
 
     def get_serializer_class(self):
         """Use different serializers for different actions"""
@@ -1051,170 +855,6 @@ class MembershipPlanViewSet(ModelViewSet):
 
 
 # Support System
-
-# class SupportSystemViewSet(ModelViewSet):
-#     """CRUD API for Support System"""
-
-#     queryset = SupportSystem.objects.filter(is_deleted=False)
-
-#     def get_serializer_class(self):
-#         """Use different serializers for GET and POST/PATCH"""
-#         if self.request.method == "GET":
-#             return SupportSystemGetSerializer
-#         return SupportSystemCreateUpdateSerializer
-
-#     def list(self, request, *args, **kwargs):
-#         """Custom list method to return structured response"""
-#         queryset = self.get_queryset()
-#         serializer = self.get_serializer(queryset, many=True)
-
-#         # Convert the response to match the expected structure
-#         support_table = [
-#             {
-#                 "id": item["id"],
-#                 "plan_name": item["plan_name"],
-#                 "plan_support": item["plan_support"]
-#             }
-#             for item in serializer.data
-#         ]
-
-#         return Response(
-#             {"status": True, "message": "Membership Plan Support list retrieve successfully", "data": support_table},
-#             status=status.HTTP_200_OK
-#         )
-
-
-#     def retrieve(self, request, pk=None, *args, **kwargs):
-#         """Retrieve a single support system with structured response"""
-#         try:
-#             support_instance = self.get_object()
-#         except SupportSystem.DoesNotExist:
-#             return Response(
-#                 {"status": False, "message": f"SupportSystem ID {pk} not found."},
-#                 status=status.HTTP_404_NOT_FOUND
-#             )
-
-#         return Response(
-#             {
-#                 "status": True,
-#                 "message": "Support System retrieved successfully!",
-#                 "data": {
-#                     "id": support_instance.id,
-#                     "plan_name": support_instance.plan.name,
-#                     "plan_support": {
-#                         "support": support_instance.support,
-#                         "training": support_instance.training,
-#                         "staff_re_training": support_instance.staff_re_training,
-#                         "dedicated_poc": support_instance.dedicated_poc,
-#                     }
-#                 }
-#             },
-#             status=status.HTTP_200_OK
-#         )
-
-#     def create(self, request, *args, **kwargs):
-#         """Create a new support system with structured response"""
-#         data = request.data
-#         plan_id = data.get("plan")
-
-#         try:
-#             plan = MembershipPlan.objects.get(id=plan_id)
-#         except MembershipPlan.DoesNotExist:
-#             return Response(
-#                 {"status": False, "message": "Invalid plan ID", "data": []},
-#                 status=status.HTTP_400_BAD_REQUEST
-#             )
-
-#         data["plan"] = plan.id  # Ensure correct plan ID
-#         serializer = self.get_serializer(data=data)
-
-#         if serializer.is_valid():
-#             support_instance = serializer.save()
-#             return Response(
-#                 {
-#                     "status": True,
-#                     "message": "Support System Created!",
-#                     "data": {
-#                         "id": support_instance.id,
-#                         "plan_name": plan.name,
-#                         "plan_support": {
-#                             "support": support_instance.support,
-#                             "training": support_instance.training,
-#                             "staff_re_training": support_instance.staff_re_training,
-#                             "dedicated_poc": support_instance.dedicated_poc,
-#                         }
-#                     }
-#                 },
-#                 status=status.HTTP_201_CREATED
-#             )
-
-#         return Response(
-#             {"status": False, "message": "Validation failed!", "data": serializer.errors},
-#             status=status.HTTP_400_BAD_REQUEST
-#         )
-
-
-#     def update(self, request, pk=None, *args, **kwargs):
-#         """Handles PUT (full update) & PATCH (partial update) requests for Support System records"""
-#         try:
-#             support_instance = self.get_object()
-#         except SupportSystem.DoesNotExist:
-#             return Response(
-#                 {"status": False, "message": f"SupportSystem ID {pk} not found."},
-#                 status=status.HTTP_404_NOT_FOUND
-#             )
-
-#         # Extract `plan_support` object from request
-#         plan_support_data = request.data.get("plan_support", {})
-
-#         # Check if it's a full update (PUT) or partial update (PATCH)
-#         if request.method == "PUT":
-#             required_fields = {"support", "free_training", "free_staff_re_training", "dedicated_poc"}
-#             if not required_fields.issubset(plan_support_data.keys()):
-#                 return Response(
-#                     {"status": False, "message": "PUT request requires all plan_support fields"},
-#                     status=status.HTTP_400_BAD_REQUEST
-#                 )
-
-#         # Map request data to model fields
-#         update_fields = {
-#             "support": plan_support_data.get("support", support_instance.support),
-#             "training": plan_support_data.get("free_training", support_instance.training),
-#             "staff_re_training": plan_support_data.get("free_staff_re_training", support_instance.staff_re_training),
-#             "dedicated_poc": plan_support_data.get("dedicated_poc", support_instance.dedicated_poc),
-#         }
-
-#         # Update the instance
-#         for field, value in update_fields.items():
-#             setattr(support_instance, field, value)
-
-#         support_instance.save()
-
-#         return Response(
-#             {
-#                 "status": True,
-#                 "message": "Support System Updated!",
-#                 "data": {
-#                     "id": support_instance.id,
-#                     "plan_name": support_instance.plan.name,
-#                     "plan_support": {
-#                         "support": support_instance.support,
-#                         "training": support_instance.training,
-#                         "staff_re_training": support_instance.staff_re_training,
-#                         "dedicated_poc": support_instance.dedicated_poc,
-#                     }
-#                 }
-#             },
-#             status=status.HTTP_200_OK
-#         )
-#     def destroy(self, request, *args, **kwargs):
-#         """Soft delete instead of hard delete"""
-#         instance = self.get_object()
-#         instance.is_deleted = True
-#         instance.save()
-#         return Response({"status": True, "message": "Support System Deleted!", "data": []}, status=status.HTTP_200_OK)
-
-
 
 class SupportSystemViewSet(ModelViewSet):
     """CRUD API for Support System"""
