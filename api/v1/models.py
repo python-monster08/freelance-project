@@ -379,6 +379,20 @@ class MembershipPlan(models.Model):
     is_deleted = models.BooleanField(default=False)
     created_by = models.ForeignKey(UserMaster, on_delete=models.CASCADE, null=True, blank=True)
 
+    def save(self, *args, **kwargs):
+        """Save MembershipPlan and create SupportSystem if not already created"""
+        is_new = self._state.adding  # Check if it's a new object
+        super().save(*args, **kwargs)  # Save the membership plan first
+        
+        if is_new:  # Create support system only for new plans
+            SupportSystem.objects.create(
+                plan=self,
+                support=False,
+                training=False,
+                staff_re_training=False,
+                dedicated_poc=False
+            )
+
     def __str__(self):
         return self.name
 

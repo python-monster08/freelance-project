@@ -141,6 +141,19 @@ class ChannelAdmin(admin.ModelAdmin):
     search_fields = ("role",)  # Allow searching by channel name
     ordering = ("id",)  # Order by ID
 
+@admin.register(MembershipPlan)
+class MembershipPlanAdmin(admin.ModelAdmin):
+    list_display = ('name', 'price', 'duration_days', 'is_active', 'referral_system', 'loyalty_points', 'feedback_analysis', 'created_on', 'is_deleted')
+    list_filter = ('is_active', 'is_deleted', 'referral_system', 'loyalty_points', 'feedback_analysis')
+    search_fields = ('name', 'created_by__username')
+    readonly_fields = ('created_on', 'updated_on')
+
+    def save_model(self, request, obj, form, change):
+        """Ensure SupportSystem is created for existing plans when saving."""
+        super().save_model(request, obj, form, change)  # Save MembershipPlan
+        SupportSystem.objects.get_or_create(plan=obj)  # Create SupportSystem if missing
+
+
 
 @admin.register(SupportSystem)
 class SupportSystemAdmin(admin.ModelAdmin):
