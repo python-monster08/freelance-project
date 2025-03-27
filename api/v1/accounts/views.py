@@ -781,7 +781,7 @@ class MembershipPlanViewSet(ModelViewSet):
         serializer = self.get_serializer(queryset, many=True)
         return Response({
             "status": True,
-            "message": "Plans fetched successfully",
+            "message": "Membership Plans fetched successfully",
             "data": serializer.data
         }, status=status.HTTP_200_OK)
 
@@ -791,7 +791,7 @@ class MembershipPlanViewSet(ModelViewSet):
         serializer = self.get_serializer(instance)
         return Response({
             "status": True,
-            "message": "Plans fetched successfully",
+            "message": "Membership Plan fetched successfully",
             "data": serializer.data
         }, status=status.HTTP_200_OK)
 
@@ -859,7 +859,7 @@ class MembershipPlanViewSet(ModelViewSet):
 class SupportSystemViewSet(ModelViewSet):
     """CRUD API for Support System"""
 
-    queryset = SupportSystem.objects.filter(is_deleted=False)
+    queryset = SupportSystem.objects.filter(is_deleted=False, plan__is_active=True).order_by("id")
 
     def get_serializer_class(self):
         """Use different serializers for GET, POST, and PATCH/PUT"""
