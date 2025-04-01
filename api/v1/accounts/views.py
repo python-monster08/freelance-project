@@ -33,8 +33,8 @@ class UserSignupView(APIView):
             if serializer.is_valid():
                 user = serializer.save()
 
-                # Create UserProfile if not exists
-                UserProfile.objects.get_or_create(user=user)
+                # Create MSMEProfile if not exists
+                MSMEProfile.objects.get_or_create(user=user)
 
                 return Response({
                     "status": True,
@@ -277,7 +277,7 @@ class OutletDetailView(generics.RetrieveUpdateDestroyAPIView):
 class UpdateProfileView(generics.RetrieveUpdateDestroyAPIView):
     """
     API for retrieving, updating, and soft deleting user profiles
-    - Retrieve includes UserProfile + Outlets + UserMaster fields
+    - Retrieve includes MSMEProfile + Outlets + UserMaster fields
     - Update modifies profile but NOT outlets
     - Delete only sets `is_deleted = True`
     """
@@ -287,7 +287,7 @@ class UpdateProfileView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_object(self):
         """Retrieve the authenticated user's profile, ensuring it exists"""
-        return get_object_or_404(UserProfile, user=self.request.user, is_deleted=False)
+        return get_object_or_404(MSMEProfile, user=self.request.user, is_deleted=False)
 
     def retrieve(self, request, *args, **kwargs):
         """Custom response format for retrieving profile"""
@@ -310,7 +310,7 @@ class UpdateProfileView(generics.RetrieveUpdateDestroyAPIView):
             )
 
     def perform_update(self, serializer):
-        """Update UserMaster fields separately before saving UserProfile"""
+        """Update UserMaster fields separately before saving MSMEProfile"""
         profile = serializer.instance
         user = profile.user
 
@@ -386,8 +386,8 @@ class CustomerCreateView(APIView):
             return Response({"status": False, "message": "Authentication required!"}, status=status.HTTP_401_UNAUTHORIZED)
 
         try:
-            user_profile = UserProfile.objects.get(user=request.user.id)
-        except UserProfile.DoesNotExist:
+            user_profile = MSMEProfile.objects.get(user=request.user.id)
+        except MSMEProfile.DoesNotExist:
             return Response({"status": False, "message": "User profile not found!"}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({"status": False, "message": f"Unexpected error: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -499,8 +499,8 @@ class CustomerUploadView(APIView):
 
             # Fetch user profile
             try:
-                user_profile = UserProfile.objects.get(user=request.user.id)
-            except UserProfile.DoesNotExist:
+                user_profile = MSMEProfile.objects.get(user=request.user.id)
+            except MSMEProfile.DoesNotExist:
                 return Response({"status": False, "message": "User profile not found!"}, status=status.HTTP_400_BAD_REQUEST)
 
             customers = []
@@ -970,3 +970,144 @@ class SupportSystemViewSet(ModelViewSet):
         instance.is_deleted = True
         instance.save()
         return Response({"status": True, "message": "Support System Deleted!", "data": []}, status=status.HTTP_200_OK)
+
+
+
+
+# ****************************** Payment Order API ******************************
+import razorpay
+from django.conf import settings
+from django.shortcuts import get_object_or_404
+from django.utils.timezone import now
+from datetime import timedelta
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from django.core.mail import send_mail
+from msme_marketing_analytics.settings import RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET
+
+
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def create_razorpay_order(request):
+    user = request.user
+    msme = get_object_or_404(MSMEProfile, user=user)
+    plan_id = request.data.get("plan_id")
+    plan = get_object_or_404(MembershipPlan, id=plan_id, is_active=True)
+
+    client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
+    order_amount = int(plan.price * 100)  # Convert to paisa
+    order_currency = "INR"
+
+    # Check if an active subscription exists
+    active_subscription = Subscription.objects.filter(msme=msme, is_active=True).first()
+    
+    if active_subscription:
+        # Update existing subscription details
+        active_subscription.membership_plan = plan
+        active_subscription.end_date = now() + timedelta(days=plan.duration_days)
+        active_subscription.auto_renew = True
+        active_subscription.save()
+    else:
+        # Create a new subscription
+        active_subscription = Subscription.objects.create(
+            msme=msme,
+            membership_plan=plan,
+            status="pending",
+            start_date=now(),
+            end_date=now() + timedelta(days=plan.duration_days),
+            auto_renew=True,
+        )
+    
+    # Create a new Razorpay order
+    order_data = {
+        "amount": order_amount,
+        "currency": order_currency,
+        "receipt": f"order_rcpt_{msme.id}",
+        "payment_capture": 1,
+    }
+    order = client.order.create(data=order_data)
+    
+    # Store Razorpay order ID in subscription
+    active_subscription.razorpay_order_id = order["id"]
+    active_subscription.save()
+
+    return Response({
+        "order_id": order["id"],
+        "amount": order_amount,
+        "currency": order_currency,
+        "message": "Order created successfully. Active plan updated."
+    })
+
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def confirm_payment(request):
+    razorpay_payment_id = request.data.get("razorpay_payment_id")
+    razorpay_order_id = request.data.get("razorpay_order_id")
+    razorpay_signature = request.data.get("razorpay_signature")
+
+    subscription = get_object_or_404(Subscription, razorpay_order_id=razorpay_order_id)
+    user = subscription.msme.user
+    new_plan = subscription.membership_plan  # The plan the user is trying to buy
+
+    # 🚀 Check if payment already exists before verification
+    existing_payment = PaymentHistory.objects.filter(razorpay_signature=razorpay_signature).first()
+    print("sdfghjkl", existing_payment)
+    if existing_payment:
+        return Response({"message": "Payment already processed"}, status=status.HTTP_400_BAD_REQUEST)
+
+    client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
+
+    try:
+        params_dict = {
+            "razorpay_payment_id": razorpay_payment_id,
+            "razorpay_order_id": razorpay_order_id,
+            "razorpay_signature": razorpay_signature,
+        }
+        client.utility.verify_payment_signature(params_dict)
+
+        # ✅ Check if user already has an active plan
+        active_subscription = Subscription.objects.filter(msme=subscription.msme, is_active=True).first()
+        if active_subscription and active_subscription.membership_plan != new_plan:
+            # 1️⃣ Cancel old subscription
+            active_subscription.is_active = False
+            active_subscription.status = "expired"
+            active_subscription.save()
+
+        # 2️⃣ Activate the new plan
+        subscription.status = "active"
+        subscription.is_active = True
+        subscription.razorpay_payment_id = razorpay_payment_id
+        subscription.razorpay_signature = razorpay_signature
+        subscription.save()
+
+        # 3️⃣ Save payment history **(With try-except block to prevent IntegrityError)**
+        try:
+            PaymentHistory.objects.create(
+                msme=subscription.msme,
+                subscription=subscription,
+                razorpay_payment_id=razorpay_payment_id,
+                razorpay_order_id=razorpay_order_id,
+                razorpay_signature=razorpay_signature,
+                amount=subscription.membership_plan.price,
+                status="success",
+            )
+        except IntegrityError:
+            return Response({"message": "Duplicate payment detected."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # 4️⃣ Send confirmation email
+        send_mail(
+            "Subscription Upgrade Successful",
+            f"Dear {user.username}, your plan has been upgraded to {new_plan.name}.",
+            "support@yourdomain.com",
+            [user.email],
+        )
+
+        return Response({"message": f"Payment successful, upgraded to {new_plan.name}."})
+
+    except razorpay.errors.SignatureVerificationError:
+        return Response({"message": "Payment verification failed."}, status=status.HTTP_400_BAD_REQUEST)

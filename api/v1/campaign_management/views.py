@@ -113,10 +113,10 @@ class CampaignListCreateView(generics.ListCreateAPIView):
                 user_profiles, outlets = [], []
 
                 for outlet_id in campaign_outlets:
-                    if outlet_id.startswith("main-"):  # Extract UserProfile ID
+                    if outlet_id.startswith("main-"):  # Extract MSMEProfile ID
                         user_profile_id = outlet_id.replace("main-", "")
                         if user_profile_id.isdigit():
-                            user_profile = UserProfile.objects.filter(id=int(user_profile_id)).first()
+                            user_profile = MSMEProfile.objects.filter(id=int(user_profile_id)).first()
                             if user_profile:
                                 user_profiles.append(user_profile)
                     elif outlet_id.startswith("sub-"):  # Extract Outlet ID
@@ -236,7 +236,7 @@ class CampaignListCreateView(generics.ListCreateAPIView):
         customers = set()  # ✅ Use a set to avoid duplicate customers
 
         # ✅ Fetch user profile
-        user_profile = UserProfile.objects.filter(user=user).first()
+        user_profile = MSMEProfile.objects.filter(user=user).first()
         print(user_profile, "user_profile")
 
         if not user_profile:
@@ -254,7 +254,7 @@ class CampaignListCreateView(generics.ListCreateAPIView):
             campaign_outlets = campaign.outlets.filter(user_profile=user_profile)
             print("campaign_outlets by User", campaign_outlets)
 
-        # ✅ Fetch customers from MSME (UserProfile) linked to outlets
+        # ✅ Fetch customers from MSME (MSMEProfile) linked to outlets
         for outlet in campaign_outlets:
             outlet_customers = Customer.objects.filter(msme=outlet.user_profile).distinct()
             customers.update(outlet_customers)
@@ -421,11 +421,11 @@ class CampaignTypeViewSet(ModelViewSet):
 # class OutletListViewSet(ModelViewSet):
 #     """ViewSet for listing user profiles with their sub_outlets"""
 #     permission_classes = [IsAuthenticated]
-#     serializer_class = GetUserProfileSerializer
+#     serializer_class = GetMSMEProfileSerializer
 
 #     def get_queryset(self):
 #         """Filter data to return only the logged- in user's profile"""
-#         return UserProfile.objects.filter(user=self.request.user)
+#         return MSMEProfile.objects.filter(user=self.request.user)
 
 #     def list(self, request, *args, **kwargs):
 #         queryset = self.get_queryset()
@@ -442,18 +442,18 @@ class CampaignTypeViewSet(ModelViewSet):
 # class OutletListViewSet(ModelViewSet):
 #     """ViewSet for listing user profiles with their sub_outlets"""
 #     permission_classes = [IsAuthenticated]
-#     serializer_class = GetUserProfileSerializer
+#     serializer_class = GetMSMEProfileSerializer
 
 #     def get_queryset(self):
 #         """Filter data to return only the logged-in user's profile"""
-#         return UserProfile.objects.filter(user=self.request.user)
+#         return MSMEProfile.objects.filter(user=self.request.user)
 
 #     def list(self, request, *args, **kwargs):
 #         queryset = self.get_queryset()
 #         response_data = []
 
 #         for profile in queryset:
-#             # ✅ Add the main outlet (UserProfile)
+#             # ✅ Add the main outlet (MSMEProfile)
 #             response_data.append({
 #                 "id": f"main-{profile.id}",  # Unique ID with prefix
 #                 "main_outlet_name": f"{profile.brand_name} (Main Outlet)",
@@ -464,7 +464,7 @@ class CampaignTypeViewSet(ModelViewSet):
 #                 "daily_footfalls": f"{profile.daily_approximate_footfalls}",
 #                 "created_on": f"{profile.updated_on}"
 #             })
-#             # ✅ Add sub_outlets (Outlets under UserProfile)
+#             # ✅ Add sub_outlets (Outlets under MSMEProfile)
 #             for outlet in profile.outlets.all():
 #                 response_data.append({
 #                     "id": f"sub-{outlet.id}",  # Unique ID with prefix
@@ -491,12 +491,12 @@ class CampaignTypeViewSet(ModelViewSet):
 
 #     def get_queryset(self):
 #         """Return only the logged-in user's profile"""
-#         return UserProfile.objects.filter(user=self.request.user)
+#         return MSMEProfile.objects.filter(user=self.request.user)
 
 #     def get_serializer_class(self):
 #         """Return different serializers for different actions"""
 #         if self.action == "list" or self.action == "retrieve":
-#             return GetUserProfileSerializer
+#             return GetMSMEProfileSerializer
 #         elif self.action == "create":
 #             return CreateOutletSerializer
 #         elif self.action == "update" or self.action == "partial_update":
@@ -598,7 +598,7 @@ class CampaignTypeViewSet(ModelViewSet):
 #         """Delete an outlet"""
 #         outlet_id = kwargs.get("pk")
 
-#         # Check if the user has a UserProfile
+#         # Check if the user has a MSMEProfile
 #         try:
 #             user_profile = request.user.profile
 #         except AttributeError:
@@ -630,9 +630,9 @@ class OutletViewSet(ModelViewSet):
 
     # def get_queryset(self):
     #     """Return only the logged-in user's profile"""
-    #     return UserProfile.objects.filter(user=self.request.user)
+    #     return MSMEProfile.objects.filter(user=self.request.user)
     def get_queryset(self):
-        return UserProfile.objects.filter(user=self.request.user, is_deleted=False).prefetch_related(
+        return MSMEProfile.objects.filter(user=self.request.user, is_deleted=False).prefetch_related(
             Prefetch("outlets", queryset=Outlet.objects.filter(is_deleted=False))
         )
 
@@ -640,7 +640,7 @@ class OutletViewSet(ModelViewSet):
     def get_serializer_class(self):
         """Return different serializers for different actions"""
         if self.action in ["list", "retrieve"]:
-            return GetUserProfileSerializer
+            return GetMSMEProfileSerializer
         elif self.action == "create":
             return CreateOutletSerializer
         elif self.action in ["update", "partial_update"]:
@@ -690,12 +690,12 @@ class OutletViewSet(ModelViewSet):
         }, status=status.HTTP_200_OK)
 
     def retrieve(self, request, *args, **kwargs):
-        """Retrieve either a UserProfile or an Outlet based on the formatted ID"""
+        """Retrieve either a MSMEProfile or an Outlet based on the formatted ID"""
         entity_type, entity_id = self.extract_id(kwargs.get("pk"))
 
         try:
             if entity_type == "main":
-                profile = UserProfile.objects.get(id=entity_id, user=request.user)
+                profile = MSMEProfile.objects.get(id=entity_id, user=request.user)
 
                 if profile.is_deleted:
                     return Response({"status": True, "message": "Main outlet not found", "data": {}}, status=status.HTTP_200_OK)
@@ -736,7 +736,7 @@ class OutletViewSet(ModelViewSet):
                     },
                 }, status=status.HTTP_200_OK)
 
-        except UserProfile.DoesNotExist:
+        except MSMEProfile.DoesNotExist:
             return Response({"status": True, "message": "Main outlet not found", "data": {}}, status=status.HTTP_200_OK)
         except Outlet.DoesNotExist:
             return Response({"status": True, "message": "Sub outlet not found", "data": {}}, status=status.HTTP_200_OK)
@@ -746,11 +746,11 @@ class OutletViewSet(ModelViewSet):
         return Response({"status": False, "message": "Invalid ID format", "data": {}}, status=status.HTTP_400_BAD_REQUEST)
 
     def update(self, request, *args, **kwargs):
-        """Update UserProfile or Outlet based on the formatted ID"""
+        """Update MSMEProfile or Outlet based on the formatted ID"""
         entity_type, entity_id = self.extract_id(kwargs.get("pk"))
 
         if entity_type == "main":
-            profile = get_object_or_404(UserProfile, id=entity_id, user=request.user)
+            profile = get_object_or_404(MSMEProfile, id=entity_id, user=request.user)
             serializer = self.get_serializer(profile, data=request.data, partial=True)
             if serializer.is_valid():
                 serializer.save()
@@ -786,11 +786,11 @@ class OutletViewSet(ModelViewSet):
         return Response({"status": False, "message": "Invalid ID format"}, status=status.HTTP_400_BAD_REQUEST)
 
     def destroy(self, request, *args, **kwargs):
-        """Soft delete UserProfile or Outlet based on the formatted ID"""
+        """Soft delete MSMEProfile or Outlet based on the formatted ID"""
         entity_type, entity_id = self.extract_id(kwargs.get("pk"))
 
         if entity_type == "main":
-            profile = get_object_or_404(UserProfile, id=entity_id, user=request.user)
+            profile = get_object_or_404(MSMEProfile, id=entity_id, user=request.user)
             profile.is_deleted = True
             profile.save()
             return Response({

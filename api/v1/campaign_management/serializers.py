@@ -90,15 +90,15 @@ class GetOutletSerializer(serializers.ModelSerializer):
         model = Outlet
         fields = ["id", "name", "area", "city", "zip_code", "state", "daily_footfalls"]
 
-class GetUserProfileSerializer(serializers.ModelSerializer):
-    """Serializer for UserProfile model with nested sub_outlets"""
+class GetMSMEProfileSerializer(serializers.ModelSerializer):
+    """Serializer for MSMEProfile model with nested sub_outlets"""
     
     main_outlet_name = serializers.CharField(source="brand_name")  # Rename brand_name to main_outlet
     daily_footfalls = serializers.CharField(source="daily_approximate_footfalls")  # Rename brand_name to main_outlet
     sub_outlets = GetOutletSerializer(many=True, source="outlets")  # Fetch related outlets
 
     class Meta:
-        model = UserProfile
+        model = MSMEProfile
         fields = ["id", "main_outlet_name", "area", "city", "zip_code", "state", "daily_footfalls", "sub_outlets"]
 
 

@@ -42,7 +42,7 @@ class UserMasterAdmin(UserAdmin):
         obj.save()
 
 
-class UserProfileAdmin(admin.ModelAdmin):
+class MSMEProfileAdmin(admin.ModelAdmin):
     list_display = [
         "id", "user", "brand_name", "area", "city", "zip_code", "state", "get_number_of_outlets", 
         "daily_approximate_footfalls", "gstin", "website"
@@ -131,7 +131,7 @@ class CampaignAdmin(admin.ModelAdmin):
     )
 
 admin.site.register(UserMaster, UserMasterAdmin)
-admin.site.register(UserProfile, UserProfileAdmin)
+admin.site.register(MSMEProfile, MSMEProfileAdmin)
 admin.site.register(Outlet, OutletAdmin)
 admin.site.register(CustomerFeedback, CustomerFeedbackAdmin)
 
@@ -183,3 +183,21 @@ class SupportSystemAdmin(admin.ModelAdmin):
     def delete_queryset(self, request, queryset):
         """Override bulk delete to implement soft delete"""
         queryset.update(is_deleted=True)
+
+
+
+@admin.register(Subscription)
+class SubscriptionAdmin(admin.ModelAdmin):
+    list_display = ("msme", "membership_plan", "status", "start_date", "end_date", "auto_renew", "is_active")
+    list_filter = ("status", "auto_renew", "is_active", "created_on")
+    search_fields = ("msme__brand_name", "membership_plan__name", "razorpay_subscription_id")
+    ordering = ("-created_on",)
+    readonly_fields = ("created_on", "updated_on")
+
+@admin.register(PaymentHistory)
+class PaymentHistoryAdmin(admin.ModelAdmin):
+    list_display = ("msme", "razorpay_payment_id", "amount", "currency", "status", "created_on")
+    list_filter = ("status", "created_on")
+    search_fields = ("msme__brand_name", "razorpay_payment_id", "razorpay_order_id")
+    ordering = ("-created_on",)
+    readonly_fields = ("created_on",)

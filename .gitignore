@@ -57,3 +57,10 @@ gunicorn-error.log
 gunicorn-access.log
 
 test.py
+
+
+settings.json
+.vscode/settings.json
+.vscode/tasks.json
+.vscode/launch.json
+.vscode/extensions.json

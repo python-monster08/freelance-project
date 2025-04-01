@@ -118,7 +118,7 @@ class UserMaster(AbstractUser):
         verbose_name = "User Master"
         verbose_name_plural = "User Masters"
     
-class UserProfile(models.Model):
+class MSMEProfile(models.Model):
     """Profile model for storing additional user details"""
 
     user = models.OneToOneField(UserMaster, on_delete=models.CASCADE, related_name="profile")
@@ -147,9 +147,9 @@ class UserProfile(models.Model):
         verbose_name_plural = "User Profiles"
 
 class Outlet(models.Model):
-    """Model for multiple outlets under a UserProfile"""
+    """Model for multiple outlets under a MSMEProfile"""
 
-    user_profile = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name="outlets")
+    user_profile = models.ForeignKey(MSMEProfile, on_delete=models.CASCADE, related_name="outlets")
     name = models.CharField(max_length=255)
     area = models.CharField(max_length=255)
     city = models.CharField(max_length=100)
@@ -182,7 +182,7 @@ class Customer(models.Model):
         ('female', 'Female'),
         ('other', 'Other'),
     ]
-    msme = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name="customers", null=True, blank=True)
+    msme = models.ForeignKey(MSMEProfile, on_delete=models.CASCADE, related_name="customers", null=True, blank=True)
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
     email = models.EmailField()
@@ -315,7 +315,7 @@ class Channel(models.Model):
 class Campaign(models.Model):
     """Model to store campaign details"""
     
-    user_profile = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name="campaigns")
+    user_profile = models.ForeignKey(MSMEProfile, on_delete=models.CASCADE, related_name="campaigns")
     name = models.CharField(max_length=255)
     message = models.TextField()
     expiry_date = models.DateField()
@@ -419,6 +419,62 @@ class SupportSystem(models.Model):
         db_table = "support_system"
         verbose_name = "Support System"
         verbose_name_plural = "Support Systems"
+
+
+class Subscription(models.Model):
+    STATUS_CHOICES = [
+        ("active", "Active"),
+        ("expired", "Expired"),
+        ("canceled", "Canceled"),
+        ("pending", "Pending"),
+    ]
+
+    msme = models.ForeignKey(MSMEProfile, on_delete=models.CASCADE)
+    membership_plan = models.ForeignKey(MembershipPlan, on_delete=models.CASCADE)
+    
+    # Razorpay Payment & Subscription Tracking
+    razorpay_payment_id = models.CharField(max_length=255, unique=True, null=True, blank=True)
+    razorpay_order_id = models.CharField(max_length=255, unique=True, null=True, blank=True)
+    razorpay_signature = models.CharField(max_length=255, unique=True, null=True, blank=True)
+    
+    razorpay_customer_id = models.CharField(max_length=255, unique=True, null=True, blank=True)  # ✅ Store Razorpay Customer ID
+    razorpay_subscription_id = models.CharField(max_length=255, unique=True, null=True, blank=True)  # ✅ Store Razorpay Recurring Subscription ID
+
+    start_date = models.DateTimeField(auto_now_add=True)
+    end_date = models.DateTimeField(null=True, blank=True)
+    
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")  # ✅ Track subscription status
+    auto_renew = models.BooleanField(default=True)  # ✅ Enable Auto-Renewal
+    is_active = models.BooleanField(default=False)
+
+    created_on = models.DateTimeField(auto_now_add=True)
+    updated_on = models.DateTimeField(auto_now=True)
+    is_deleted = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"{self.msme.brand_name} - {self.membership_plan.name} ({self.status})"
+
+
+    
+
+
+class PaymentHistory(models.Model):
+    msme = models.ForeignKey(MSMEProfile, on_delete=models.CASCADE)
+    subscription = models.ForeignKey(Subscription, on_delete=models.CASCADE, related_name="payments")
+    
+    razorpay_payment_id = models.CharField(max_length=255, unique=True)
+    razorpay_order_id = models.CharField(max_length=255, unique=True)
+    razorpay_signature = models.CharField(max_length=255, unique=True)
+    
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    currency = models.CharField(max_length=10, default="INR")
+    status = models.CharField(max_length=50, default="pending")  # ✅ pending, success, failed
+
+    created_on = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.msme.brand_name} - {self.razorpay_payment_id} ({self.status})"
+
 
 # {
 # "campaign_channel":[1,2],   

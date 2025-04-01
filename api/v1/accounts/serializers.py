@@ -54,14 +54,14 @@ class OutletSerializer(serializers.ModelSerializer):
         fields = ["id", "name", "area", "city", "zip_code", "state", "daily_footfalls"]
         read_only_fields = ["id"]  # Auto-generated field
 
-# class UserProfileSerializer(serializers.ModelSerializer):
-#     """Serializer for UserProfile model, allowing nested Outlet creation"""
+# class MSMEProfileSerializer(serializers.ModelSerializer):
+#     """Serializer for MSMEProfile model, allowing nested Outlet creation"""
     
 #     outlets = OutletSerializer(many=True, required=False)  # Supports multiple outlets
 
 #     class Meta:
-#         model = UserProfile
-#         fields = "__all__"  # Include all fields in the UserProfile model
+#         model = MSMEProfile
+#         fields = "__all__"  # Include all fields in the MSMEProfile model
 
 #     def update(self, instance, validated_data):
 #         """Custom update method to handle nested outlets"""
@@ -69,7 +69,7 @@ class OutletSerializer(serializers.ModelSerializer):
 #         # Extract nested outlets data
 #         outlets_data = validated_data.pop("outlets", [])
 
-#         # Update the UserProfile fields
+#         # Update the MSMEProfile fields
 #         for attr, value in validated_data.items():
 #             setattr(instance, attr, value)
 #         instance.save()
@@ -84,7 +84,7 @@ class OutletSerializer(serializers.ModelSerializer):
 
 #         return instance
 class UpdateProfileSerializer(serializers.ModelSerializer):
-    """Serializer for updating and retrieving UserProfile details"""
+    """Serializer for updating and retrieving MSMEProfile details"""
 
     # UserMaster fields
     username = serializers.CharField(source="user.username", read_only=True)
@@ -95,7 +95,7 @@ class UpdateProfileSerializer(serializers.ModelSerializer):
     phone_number = serializers.CharField(source="user.phone_number")
     created_on = serializers.DateTimeField(source="user.created_on", read_only=True)
 
-    # UserProfile fields
+    # MSMEProfile fields
     website = serializers.CharField(required=False, allow_blank=True)
     brand_name = serializers.CharField(required=False, allow_blank=True)
     number_of_outlets = serializers.SerializerMethodField()  # Dynamic field
@@ -115,7 +115,7 @@ class UpdateProfileSerializer(serializers.ModelSerializer):
     outlets = OutletSerializer(many=True, read_only=True)
 
     class Meta:
-        model = UserProfile
+        model = MSMEProfile
         fields = [
             "username", "email", "first_name", "last_name", "is_active", "phone_number",
             "profile_picture", "website", "brand_name", "number_of_outlets",
@@ -142,7 +142,7 @@ class UpdateProfileSerializer(serializers.ModelSerializer):
         return self.get_image_url(obj, "brand_logo")
 
     def update(self, instance, validated_data):
-        """Ensure UserMaster fields are updated when UserProfile is updated"""
+        """Ensure UserMaster fields are updated when MSMEProfile is updated"""
         user_data = self.context["request"].data  # Get request data
         request = self.context.get("request")  # Get request context
 
@@ -153,7 +153,7 @@ class UpdateProfileSerializer(serializers.ModelSerializer):
         user.phone_number = user_data.get("phone_number", user.phone_number)
         user.save()
 
-        # Update UserProfile fields
+        # Update MSMEProfile fields
         instance.brand_name = validated_data.get("brand_name", instance.brand_name)
         instance.website = validated_data.get("website", instance.website)
         instance.daily_approximate_footfalls = validated_data.get("daily_approximate_footfalls", instance.daily_approximate_footfalls)

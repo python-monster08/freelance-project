@@ -23,5 +23,9 @@ urlpatterns = [
     path('upload_customers/', CustomerUploadView.as_view(), name='upload_customers'),  # API to upload customers via Excel
     path('customers/', CustomerListView.as_view(), name='customer_list'),
     path('customers/<int:pk>/', CustomerRetrieveView.as_view(), name='customer_detail'),
+
+    # Payment order
+    path("create_payment_order/", create_razorpay_order, name="create_payment_order"),
+    path("confirm_payment/", confirm_payment, name="confirm_payment"),
     path('', include(router.urls)),  # Includes all ViewSet routes
 ]

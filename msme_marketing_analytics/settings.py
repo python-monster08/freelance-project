@@ -329,3 +329,14 @@ SWAGGER_SETTINGS = {
     },
     "USE_SESSION_AUTH": False,  # ✅ Disable default Django session auth
 }
+
+
+
+# RAZORPAY_KEY_ID = "your_razorpay_key_id"
+RAZORPAY_KEY_SECRET = "vnN2k4SJOYrhyyK2T3KVluzM"
+RAZORPAY_WEBHOOK_SECRET = "your_webhook_secret"
+
+RAZORPAY_KEY_ID = "rzp_test_nAVFwKLmjE0Ria"
+RAZORPAY_SECRET = "vnN2k4SJOYrhyyK2T3KVluzM"
+
+

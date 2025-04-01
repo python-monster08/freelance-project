@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Razorpay Payment</title>
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+</head>
+<body>
+    <button id="pay-btn">Pay Now</button>
+
+    <script>
+        document.getElementById("pay-btn").onclick = function () {
+            fetch("http://127.0.0.1:8000/api/v1/account/create_payment_order/", {
+                method: "POST",
+                headers: {
+                    "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzQzNjIxNTk3LCJpYXQiOjE3NDM1MzUxOTcsImp0aSI6Ijc5ZTRkYzNkYTJhOTQ5NTNhMTUzYTBhZTg3ODUwNzVhIiwidXNlcl9pZCI6MX0.znTNyEM3T8ZNOMeszOB4FZJhbWJqakEV6Ne3HkuJIPo",
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ plan_id: 12 })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (!data.order_id || !data.amount) {
+                    throw new Error("Invalid order data received!");
+                }
+
+                var options = {
+                    "key": "rzp_test_nAVFwKLmjE0Ria",
+                    "amount": data.amount,
+                    "currency": data.currency,
+                    "name": "Test MSME",
+                    "description": "Membership Plan",
+                    "order_id": data.order_id,
+                    "handler": function (response) {
+                        fetch("http://127.0.0.1:8000/api/v1/account/confirm_payment/", {
+                            method: "POST",
+                            headers: {
+                                "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzQzNjIxNTk3LCJpYXQiOjE3NDM1MzUxOTcsImp0aSI6Ijc5ZTRkYzNkYTJhOTQ5NTNhMTUzYTBhZTg3ODUwNzVhIiwidXNlcl9pZCI6MX0.znTNyEM3T8ZNOMeszOB4FZJhbWJqakEV6Ne3HkuJIPo",
+                                "Content-Type": "application/json"
+                            },
+                            body: JSON.stringify({
+                                razorpay_payment_id: response.razorpay_payment_id,
+                                razorpay_order_id: response.razorpay_order_id,
+                                razorpay_signature: response.razorpay_signature
+                            })
+                        })
+                        .then(res => res.json())
+                        .then(res => {
+                            alert(res.message);
+                        })
+                        .catch(error => console.error("Payment Confirmation Error:", error));
+                    }
+                };
+
+                var rzp = new Razorpay(options);
+                rzp.open();
+            })
+            .catch(error => console.error("Order Creation Error:", error));
+        };
+    </script>
+</body>
+</html>
