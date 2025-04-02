@@ -9,10 +9,10 @@
 
     <script>
         document.getElementById("pay-btn").onclick = function () {
-            fetch("http://127.0.0.1:8000/api/v1/account/create_payment_order/", {
+            fetch("http://51.20.127.213/api/v1/account/create_payment_order/", {
                 method: "POST",
                 headers: {
-                    "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzQzNjIxNTk3LCJpYXQiOjE3NDM1MzUxOTcsImp0aSI6Ijc5ZTRkYzNkYTJhOTQ5NTNhMTUzYTBhZTg3ODUwNzVhIiwidXNlcl9pZCI6MX0.znTNyEM3T8ZNOMeszOB4FZJhbWJqakEV6Ne3HkuJIPo",
+                    "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzQzNjIyMTc4LCJpYXQiOjE3NDM1MzU3NzgsImp0aSI6ImEyY2JjODk1MDdjYzRjZWNiMjZkNTdkNWM3M2ZiNmZkIiwidXNlcl9pZCI6MX0.NO8c-RrMcpgcr-f57iNK6rYfIB4jQaT8KcB9RtGK1Vg",
                     "Content-Type": "application/json"
                 },
                 body: JSON.stringify({ plan_id: 12 })
@@ -31,10 +31,10 @@
                     "description": "Membership Plan",
                     "order_id": data.order_id,
                     "handler": function (response) {
-                        fetch("http://127.0.0.1:8000/api/v1/account/confirm_payment/", {
+                        fetch("http://51.20.127.213/api/v1/account/confirm_payment/", {
                             method: "POST",
                             headers: {
-                                "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzQzNjIxNTk3LCJpYXQiOjE3NDM1MzUxOTcsImp0aSI6Ijc5ZTRkYzNkYTJhOTQ5NTNhMTUzYTBhZTg3ODUwNzVhIiwidXNlcl9pZCI6MX0.znTNyEM3T8ZNOMeszOB4FZJhbWJqakEV6Ne3HkuJIPo",
+                                "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzQzNjIyMTc4LCJpYXQiOjE3NDM1MzU3NzgsImp0aSI6ImEyY2JjODk1MDdjYzRjZWNiMjZkNTdkNWM3M2ZiNmZkIiwidXNlcl9pZCI6MX0.NO8c-RrMcpgcr-f57iNK6rYfIB4jQaT8KcB9RtGK1Vg",
                                 "Content-Type": "application/json"
                             },
                             body: JSON.stringify({

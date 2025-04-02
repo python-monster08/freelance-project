@@ -998,7 +998,7 @@ def create_razorpay_order(request):
     plan = get_object_or_404(MembershipPlan, id=plan_id, is_active=True)
 
     client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
-    order_amount = int(plan.price * 100)  # Convert to paisa
+    order_amount = int(plan.price * (100*100))  # Convert to paisa
     order_currency = "INR"
 
     # Check if an active subscription exists
@@ -1035,6 +1035,7 @@ def create_razorpay_order(request):
     active_subscription.save()
 
     return Response({
+        "status":True,
         "order_id": order["id"],
         "amount": order_amount,
         "currency": order_currency,
@@ -1058,7 +1059,7 @@ def confirm_payment(request):
     existing_payment = PaymentHistory.objects.filter(razorpay_signature=razorpay_signature).first()
     print("sdfghjkl", existing_payment)
     if existing_payment:
-        return Response({"message": "Payment already processed"}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"status":True,"message": "Payment already processed"}, status=status.HTTP_400_BAD_REQUEST)
 
     client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
 
@@ -1097,7 +1098,7 @@ def confirm_payment(request):
                 status="success",
             )
         except IntegrityError:
-            return Response({"message": "Duplicate payment detected."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"status":False, "message": "Duplicate payment detected."}, status=status.HTTP_400_BAD_REQUEST)
 
         # 4️⃣ Send confirmation email
         send_mail(
@@ -1107,7 +1108,7 @@ def confirm_payment(request):
             [user.email],
         )
 
-        return Response({"message": f"Payment successful, upgraded to {new_plan.name}."})
+        return Response({"status":True, "message": f"Payment successful, upgraded to {new_plan.name}."})
 
     except razorpay.errors.SignatureVerificationError:
-        return Response({"message": "Payment verification failed."}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"status":False, "message": "Payment verification failed."}, status=status.HTTP_400_BAD_REQUEST)
