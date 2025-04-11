@@ -6,9 +6,33 @@ razorpay_client = razorpay.Client(
     auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET)
 )
 
+# def create_customer(msme):
+#     if msme.razorpay_customer_id:
+#         return {"id": msme.razorpay_customer_id}
+#     res = razorpay_client.customer.create({
+#         "name": msme.brand_name,
+#         "email": msme.user.email,
+#         "contact": msme.user.phone_number
+#     })
+#     msme.razorpay_customer_id = res['id']
+#     msme.save()
+#     return res
+
+
 def create_customer(msme):
+    # Already exists locally
     if msme.razorpay_customer_id:
         return {"id": msme.razorpay_customer_id}
+    
+    # ✅ Try searching Razorpay customers by email
+    existing_customers = razorpay_client.customer.all({'email': msme.user.email}).get('items', [])
+    if existing_customers:
+        customer_id = existing_customers[0]['id']
+        msme.razorpay_customer_id = customer_id
+        msme.save()
+        return {"id": customer_id}
+
+    # ❌ If not found, create a new one
     res = razorpay_client.customer.create({
         "name": msme.brand_name,
         "email": msme.user.email,
@@ -17,6 +41,7 @@ def create_customer(msme):
     msme.razorpay_customer_id = res['id']
     msme.save()
     return res
+
 
 def create_plan(plan):
     res = razorpay_client.plan.create({
