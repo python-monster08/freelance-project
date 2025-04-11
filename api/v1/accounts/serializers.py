@@ -470,3 +470,9 @@ class SupportSystemUpdateSerializer(serializers.ModelSerializer):
                 "dedicated_poc": instance.dedicated_poc,
             }
         }
+
+
+class PaymentHistorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PaymentHistory
+        fields = "__all__"
