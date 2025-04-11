@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'social_django',
     "drf_yasg",  # ✅ Swagger
+    'django_celery_beat',
     # Custom app
     'api.v1',
 ]
@@ -339,4 +340,23 @@ RAZORPAY_WEBHOOK_SECRET = "your_webhook_secret"
 RAZORPAY_KEY_ID = "rzp_test_nAVFwKLmjE0Ria"
 RAZORPAY_SECRET = "vnN2k4SJOYrhyyK2T3KVluzM"
 
+
+# RAZORPAY_KEY_ID = config("RAZORPAY_KEY_ID")
+# RAZORPAY_KEY_SECRET = config("RAZORPAY_KEY_SECRET")
+# RAZORPAY_WEBHOOK_SECRET = config("RAZORPAY_WEBHOOK_SECRET")
+
+# print("settings.RAZORPAY_KEY_ID", RAZORPAY_KEY_ID)
+# print("settings.RAZORPAY_KEY_SECRET", RAZORPAY_KEY_SECRET)
+## Timezone
+CELERY_TIMEZONE = 'Asia/Kolkata'  
+CELERY_ENABLE_UTC = False
+
+# Celery Configuration
+CELERY_BROKER_URL = 'redis://localhost:6379/0'
+CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+
+# Beat scheduler
+CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
 
