@@ -1112,3 +1112,276 @@ def confirm_payment(request):
 
     except razorpay.errors.SignatureVerificationError:
         return Response({"status":False, "message": "Payment verification failed."}, status=status.HTTP_400_BAD_REQUEST)
+
+
+# ***************************************************************************
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from django.utils import timezone
+from datetime import timedelta
+from .razorpay_utils import *
+
+from django.core.mail import send_mail
+
+class CreateSubscriptionView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        try:
+            msme = MSMEProfile.objects.get(user=request.user)
+            plan_id = request.data.get("membership_plan_id")
+            print(plan_id, "plan_id")
+            plan = MembershipPlan.objects.get(id=plan_id)
+            print("plan", plan)
+
+            if Subscription.objects.filter(msme=msme, is_active=True).exists():
+                return Response({
+                    "status": False,
+                    "message": "Active subscription already exists.",
+                    "data": []
+                }, status=400)
+
+            existing = Subscription.objects.filter(msme=msme).last()
+            customer_id = existing.razorpay_customer_id if existing and existing.razorpay_customer_id else create_customer(msme)["id"]
+
+            razorpay_plan = create_plan(plan)
+            razorpay_sub = create_subscription(customer_id, razorpay_plan["id"], plan.price)
+
+            Subscription.objects.create(
+                msme=msme,
+                membership_plan=plan,
+                razorpay_customer_id=customer_id,
+                razorpay_subscription_id=razorpay_sub["id"],
+                status="pending",
+                is_active=False,
+                auto_renew=True,
+                end_date=timezone.now() + timedelta(days=plan.duration_days)
+            )
+
+            return Response({
+                "status": True,
+                "message": "Subscription initiated. Complete payment.",
+                "data": {
+                    "subscription_id": razorpay_sub["id"],
+                    "payment_link": razorpay_sub.get("short_url")
+                }
+            })
+
+        except Exception as e:
+            return Response({
+                "status": False,
+                "message": str(e),
+                "data": []
+            }, status=500)
+
+
+class ConfirmPaymentView(APIView):
+    def post(self, request):
+        try:
+            data = request.data
+            payment_id = data.get("razorpay_payment_id")
+            subscription_id = data.get("razorpay_subscription_id")
+            signature = data.get("razorpay_signature")
+
+            verify_signature(payment_id, subscription_id, signature)
+
+            subscription = Subscription.objects.get(razorpay_subscription_id=subscription_id)
+            subscription.razorpay_payment_id = payment_id
+            subscription.razorpay_signature = signature
+            subscription.status = "active"
+            subscription.is_active = True
+            subscription.start_date = timezone.now()
+
+            subscription_data = fetch_subscription(subscription.razorpay_subscription_id)
+            end_timestamp = subscription_data.get("current_end")
+            if end_timestamp:
+                subscription.end_date = timezone.make_aware(datetime.fromtimestamp(end_timestamp))
+            else:
+                subscription.end_date = timezone.now() + timedelta(days=subscription.membership_plan.duration_days)
+
+            subscription.save()
+
+            PaymentHistory.objects.create(
+                msme=subscription.msme,
+                subscription=subscription,
+                razorpay_payment_id=payment_id,
+                razorpay_signature=signature,
+                amount=subscription.membership_plan.price,
+                currency="INR",
+                status="success"
+            )
+
+            send_mail(
+                subject="Subscription Successful",
+                message=f"Hi {subscription.msme.brand_name}, your payment was successful!",
+                recipient_list=[subscription.msme.user.email],
+                from_email=settings.DEFAULT_FROM_EMAIL
+            )
+
+            return Response({
+                "status": True,
+                "message": "Payment confirmed and subscription activated.",
+                "data": {
+                    "subscription_id": subscription.razorpay_subscription_id,
+                    "payment_id": payment_id
+                }
+            })
+
+        except razorpay.errors.SignatureVerificationError:
+            return Response({
+                "status": False,
+                "message": "Invalid signature",
+                "data": []
+            }, status=400)
+        except Exception as e:
+            return Response({
+                "status": False,
+                "message": str(e),
+                "data": []
+            }, status=500)
+
+
+class CancelAutoRenewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        try:
+            msme = MSMEProfile.objects.get(user=request.user)
+            sub = Subscription.objects.filter(msme=msme, is_active=True).last()
+
+            if not sub:
+                return Response({
+                    "status": False,
+                    "message": "No active subscription found.",
+                    "data": []
+                }, status=404)
+
+            subscription_data = fetch_subscription(sub.razorpay_subscription_id)
+            if subscription_data.get("status") != "active":
+                return Response({
+                    "status": False,
+                    "message": "Subscription must be active before auto-renewal can be cancelled.",
+                    "data": []
+                }, status=400)
+
+            cancel_auto_renew(sub.razorpay_subscription_id)
+            sub.auto_renew = False
+            sub.save()
+
+            send_mail(
+                subject="Auto-Renew Cancelled",
+                message=f"Hi {sub.msme.brand_name}, auto-renewal has been disabled.",
+                recipient_list=[sub.msme.user.email],
+                from_email=settings.DEFAULT_FROM_EMAIL
+            )
+
+            return Response({
+                "status": True,
+                "message": "Auto-renewal cancelled successfully.",
+                "data": {
+                    "subscription_id": sub.razorpay_subscription_id
+                }
+            })
+
+        except Exception as e:
+            return Response({
+                "status": False,
+                "message": str(e),
+                "data": []
+            }, status=500)
+        
+
+
+from api.v1.accounts.razorpay_utils import razorpay_client
+
+
+class MySubscriptionStatusView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            msme = MSMEProfile.objects.get(user=request.user)
+            sub = Subscription.objects.filter(msme=msme, is_active=True).last()
+            if not sub:
+                return Response({"message": "No active subscription."})
+            
+            razorpay_sub = razorpay_client.subscription.fetch(sub.razorpay_subscription_id)
+            status = ''
+            if sub.status == razorpay_sub["status"]:
+                status = razorpay_sub["status"]
+            return Response({
+                "status": True,
+                "message": "Your Subcription Details fetched successfully.",
+                "data": {
+                    "membership_plan": sub.membership_plan.name,
+                    "membership_plan": sub.membership_plan.name,
+                    "membership_status":status,
+                    # "local_status": sub.status,
+                    "auto_renew": sub.auto_renew,
+                    # "razorpay_status": razorpay_sub["status"],
+                    "ends_on": sub.end_date
+                }
+            })
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=500)
+
+
+
+
+class PaymentHistoryViewSet(ModelViewSet):
+    queryset = PaymentHistory.objects.all()
+    serializer_class = PaymentHistorySerializer
+    pagination_class = CustomPagination
+
+
+
+# *************************** Webhook Implementation *******************************************
+import json
+import hmac
+import hashlib
+from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse, HttpResponseBadRequest
+from django.conf import settings
+
+
+@csrf_exempt
+def razorpay_webhook(request):
+    webhook_secret = settings.RAZORPAY_WEBHOOK_SECRET
+
+    # Verify signature
+    received_signature = request.headers.get("X-Razorpay-Signature")
+    generated_signature = hmac.new(
+        webhook_secret.encode(),
+        msg=request.body,
+        digestmod=hashlib.sha256
+    ).hexdigest()
+
+    if received_signature != generated_signature:
+        return HttpResponseBadRequest("Invalid signature")
+
+    data = json.loads(request.body)
+    event = data.get("event")
+
+    if event == "invoice.paid":
+        invoice = data['payload']['invoice']['entity']
+        payment_id = invoice.get("payment_id")
+        invoice_id = invoice.get("id")
+        subscription_id = invoice.get("subscription_id")
+
+        try:
+            subscription = Subscription.objects.get(razorpay_subscription_id=subscription_id)
+            payment_record = PaymentHistory.objects.filter(
+                razorpay_payment_id="",
+                subscription=subscription
+            ).latest("created_on")
+
+            payment_record.razorpay_payment_id = payment_id
+            payment_record.status = "success"
+            payment_record.save()
+        except (PaymentHistory.DoesNotExist, Subscription.DoesNotExist):
+            pass  # Optionally log this
+
+    return JsonResponse({"status": "ok"})
+
