@@ -1164,7 +1164,7 @@ class CreateSubscriptionView(APIView):
                 "message": "Subscription initiated. Complete payment.",
                 "data": {
                     "subscription_id": razorpay_sub["id"],
-                    "payment_link": razorpay_sub.get("short_url")
+                    # "payment_link": razorpay_sub.get("short_url")
                 }
             })
 
@@ -1177,6 +1177,7 @@ class CreateSubscriptionView(APIView):
 
 
 class ConfirmPaymentView(APIView):
+    authentication_classes = [IsAuthenticated]
     def post(self, request):
         try:
             data = request.data
