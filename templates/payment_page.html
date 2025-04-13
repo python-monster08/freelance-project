@@ -1,59 +1,95 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Membership Payment</title>
-    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+  <title>Subscribe Now</title>
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 </head>
 <body>
-    <h2>Subscribe to {{ plan.name }}</h2>
-    <p>Amount: ₹{{ amount|floatformat:2 }}</p>
 
-    <button id="pay-btn">Pay Now</button>
+<h2>Subscribe to our Plan</h2>
+<button id="subscribe-btn">Pay Now</button>
 
-    <script>
-        document.getElementById('pay-btn').addEventListener('click', function () {
-            var options = {
-                "key": "{{ razorpay_key }}",
-                "amount": "{{ amount }}",
-                "currency": "{{ currency }}",
-                "name": "Your Company",
-                "description": "Membership Subscription",
-                "order_id": "{{ order_id }}",
-                "handler": function (response) {
-                    console.log("Payment ID:", response.razorpay_payment_id);
-                    console.log("Order ID:", response.razorpay_order_id);
-                    console.log("Signature:", response.razorpay_signature);
-    
-                    alert("Payment Successful!\nPayment ID: " + response.razorpay_payment_id + 
-                          "\nSignature: " + response.razorpay_signature);
-    
-                    // Send payment details to backend for verification
-                    fetch("/new_verify_payment", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            razorpay_payment_id: response.razorpay_payment_id,
-                            razorpay_order_id: response.razorpay_order_id,
-                            razorpay_signature: response.razorpay_signature
-                        })
-                    })
-                    .then(res => res.json())
-                    .then(data => {
-                        if (data.status === "success") {
-                            window.location.href = "/payment-success/?payment_id=" + response.razorpay_payment_id;
-                        } else {
-                            alert("Payment verification failed! Contact support.");
-                        }
-                    });
-                },
-                "theme": { "color": "#3399cc" }
-            };
-            var rzp = new Razorpay(options);
-            rzp.open();
+<script>
+document.getElementById('subscribe-btn').onclick = async function(e) {
+  e.preventDefault();
+
+  try {
+    // 🔐 Replace this with your actual JWT token
+    const token = "Bearer f:\Freelancing\Office Code\freelance-project-main\templates\payment_page.html";
+
+    // 1️⃣ Fetch subscription ID from your Django backend
+    const response = await fetch("http://127.0.0.1:8000/api/v1/account/create_subscription/", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": token
+      },
+      body: JSON.stringify({
+        membership_plan_id: 3 // Replace with actual selected plan ID
+      })
+    });
+
+    const result = await response.json();
+
+    if (!result.status) {
+      alert("❌ " + (result.message || "Failed to create subscription"));
+      console.error(result);
+      return;
+    }
+
+    const data = result.data;
+    const subscriptionId = data.subscription_id;
+
+    // 2️⃣ Razorpay Checkout options
+    const options = {
+      key: "rzp_test_nAVFwKLmjE0Ria", // Replace with your Razorpay Test Key ID
+      subscription_id: subscriptionId,
+      name: "MSME Campaign Platform",
+      description: "Premium Membership Plan",
+      image: "/freelance-project-main/media/brand_logos/Frame_62530_3.png", // Optional: your brand logo
+      handler: function (paymentResponse) {
+        // 3️⃣ Send payment confirmation to backend
+        fetch("http://127.0.0.1:8000/api/v1/account/confirm-payment/", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": token
+          },
+          body: JSON.stringify({
+            razorpay_payment_id: paymentResponse.razorpay_payment_id,
+            razorpay_subscription_id: paymentResponse.razorpay_subscription_id,
+            razorpay_signature: paymentResponse.razorpay_signature
+          })
+        })
+        .then(res => res.json())
+        .then(confirmData => {
+          if (confirmData.status) {
+            alert("✅ Payment successful 🎉\n" + confirmData.message);
+            console.log("Server Response:", confirmData.data);
+          } else {
+            alert("❌ Payment verification failed: " + confirmData.message);
+            console.error(confirmData);
+          }
+        })
+        .catch(err => {
+          alert("❌ Payment verification error!");
+          console.error(err);
         });
-    </script>
-    
+      },
+      theme: {
+        color: "#3399cc"
+      }
+    };
+
+    const rzp = new Razorpay(options);
+    rzp.open();
+
+  } catch (error) {
+    console.error("Unexpected Error:", error);
+    alert("❌ Something went wrong while processing subscription.");
+  }
+};
+</script>
+
 </body>
 </html>

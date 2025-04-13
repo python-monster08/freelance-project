@@ -145,9 +145,9 @@ class MSMEProfile(models.Model):
         return f"{self.user.username}'s MSME"
 
     class Meta:
-        db_table = "user_profile"
-        verbose_name = "User Profile"
-        verbose_name_plural = "User Profiles"
+        db_table = "msme_profile"
+        verbose_name = "MSME Profile"
+        verbose_name_plural = "MSME Profiles"
 
 class Outlet(models.Model):
     """Model for multiple outlets under a MSMEProfile"""
