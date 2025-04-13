@@ -437,12 +437,12 @@ class Subscription(models.Model):
     membership_plan = models.ForeignKey(MembershipPlan, on_delete=models.CASCADE)
     
     # Razorpay Payment & Subscription Tracking
-    razorpay_payment_id = models.CharField(max_length=255, unique=True, null=True, blank=True)
-    razorpay_order_id = models.CharField(max_length=255, unique=True, null=True, blank=True)
-    razorpay_signature = models.CharField(max_length=255, unique=True, null=True, blank=True)
+    razorpay_payment_id = models.CharField(max_length=255, null=True, blank=True)
+    razorpay_order_id = models.CharField(max_length=255, null=True, blank=True)
+    razorpay_signature = models.CharField(max_length=255, null=True, blank=True)
     
-    razorpay_customer_id = models.CharField(max_length=255, unique=True, null=True, blank=True)  # ✅ Store Razorpay Customer ID
-    razorpay_subscription_id = models.CharField(max_length=255, unique=True, null=True, blank=True)  # ✅ Store Razorpay Recurring Subscription ID
+    razorpay_customer_id = models.CharField(max_length=255, null=True, blank=True)  # ✅ Store Razorpay Customer ID
+    razorpay_subscription_id = models.CharField(max_length=255, null=True, blank=True)  # ✅ Store Razorpay Recurring Subscription ID
 
     start_date = models.DateTimeField(auto_now_add=True)
     end_date = models.DateTimeField(null=True, blank=True)
