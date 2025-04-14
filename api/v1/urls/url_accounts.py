@@ -32,6 +32,6 @@ urlpatterns = [
     path("confirm_subscription_payment/", ConfirmPaymentView.as_view(), name="confirm_subscription_payment"),
     path("cancel_auto_renew/", CancelAutoRenewView.as_view(), name="cancel_auto_renew"),
     path("razorpay_subscription_status/", MySubscriptionStatusView.as_view(), name="razorpay_subscription_status"),
-    path("razorpay_webhook/", razorpay_webhook, name="razorpay_webhook"),
+    path("razorpay_payment_status_webhook/", RazorpayWebhookView.as_view(), name="razorpay_webhook"),
     path('', include(router.urls)),  # Includes all ViewSet routes
 ]
