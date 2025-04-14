@@ -1177,7 +1177,7 @@ class CreateSubscriptionView(APIView):
 
 
 class ConfirmPaymentView(APIView):
-    authentication_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated]
     def post(self, request):
         try:
             data = request.data
