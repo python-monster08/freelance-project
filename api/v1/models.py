@@ -495,6 +495,20 @@ class PaymentHistory(models.Model):
         return f"{self.msme.brand_name} - {self.razorpay_payment_id} ({self.status})"
 
 
+class RazorpayWebhookLog(models.Model):
+    event = models.CharField(max_length=255)
+    payload = models.JSONField()
+    status = models.CharField(max_length=100, default='received')  # received, processed, failed
+    received_at = models.DateTimeField(auto_now_add=True)
+    notes = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.event} at {self.received_at}"
+    class Meta:
+        db_table = "Razorpay_webhook_log"
+        verbose_name = "Razorpay Webhook Log"
+        verbose_name_plural = "Razorpay Webhook Logs"
+
 
 # {
 # "campaign_channel":[1,2],   
