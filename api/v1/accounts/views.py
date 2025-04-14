@@ -1176,8 +1176,91 @@ class CreateSubscriptionView(APIView):
             }, status=500)
 
 
+# class ConfirmPaymentView(APIView):
+#     permission_classes = [IsAuthenticated]
+#     def post(self, request):
+#         try:
+#             data = request.data
+#             payment_id = data.get("razorpay_payment_id")
+#             subscription_id = data.get("razorpay_subscription_id")
+#             signature = data.get("razorpay_signature")
+
+#             verify_signature(payment_id, subscription_id, signature)
+
+#             subscription = Subscription.objects.get(razorpay_subscription_id=subscription_id)
+#             subscription.razorpay_payment_id = payment_id
+#             subscription.razorpay_signature = signature
+#             subscription.status = "active"
+#             subscription.is_active = True
+#             subscription.start_date = timezone.now()
+
+#             subscription_data = fetch_subscription(subscription.razorpay_subscription_id)
+#             end_timestamp = subscription_data.get("current_end")
+#             if end_timestamp:
+#                 subscription.end_date = timezone.make_aware(datetime.fromtimestamp(end_timestamp))
+#             else:
+#                 subscription.end_date = timezone.now() + timedelta(days=subscription.membership_plan.duration_days)
+
+#             subscription.save()
+
+#             PaymentHistory.objects.create(
+#                 msme=subscription.msme,
+#                 subscription=subscription,
+#                 razorpay_payment_id=payment_id,
+#                 razorpay_signature=signature,
+#                 amount=subscription.membership_plan.price,
+#                 currency="INR",
+#                 status="success"
+#             )
+
+#             send_mail(
+#                 subject="Subscription Successful",
+#                 message=f"Hi {subscription.msme.brand_name}, your payment was successful!",
+#                 recipient_list=[subscription.msme.user.email],
+#                 from_email=settings.DEFAULT_FROM_EMAIL
+#             )
+
+#             return Response({
+#                 "status": True,
+#                 "message": "Payment confirmed and subscription activated.",
+#                 "data": {
+#                     "subscription_id": subscription.razorpay_subscription_id,
+#                     "payment_id": payment_id
+#                 }
+#             })
+
+#         except razorpay.errors.SignatureVerificationError:
+#             return Response({
+#                 "status": False,
+#                 "message": "Invalid signature",
+#                 "data": []
+#             }, status=400)
+#         except Exception as e:
+#             return Response({
+#                 "status": False,
+#                 "message": str(e),
+#                 "data": []
+#             }, status=500)
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from django.template.loader import render_to_string
+from django.core.mail import EmailMessage
+from django.utils import timezone
+from django.conf import settings
+
+from datetime import datetime, timedelta
+from io import BytesIO
+import razorpay
+import logging
+
+from weasyprint import HTML
+
+logger = logging.getLogger(__name__)
+
 class ConfirmPaymentView(APIView):
     permission_classes = [IsAuthenticated]
+
     def post(self, request):
         try:
             data = request.data
@@ -1185,8 +1268,17 @@ class ConfirmPaymentView(APIView):
             subscription_id = data.get("razorpay_subscription_id")
             signature = data.get("razorpay_signature")
 
+            if not all([payment_id, subscription_id, signature]):
+                return Response({
+                    "status": False,
+                    "message": "Missing Razorpay payment data.",
+                    "data": []
+                }, status=400)
+
+            # ✅ Verify the Razorpay signature
             verify_signature(payment_id, subscription_id, signature)
 
+            # ✅ Fetch and update subscription object
             subscription = Subscription.objects.get(razorpay_subscription_id=subscription_id)
             subscription.razorpay_payment_id = payment_id
             subscription.razorpay_signature = signature
@@ -1194,7 +1286,7 @@ class ConfirmPaymentView(APIView):
             subscription.is_active = True
             subscription.start_date = timezone.now()
 
-            subscription_data = fetch_subscription(subscription.razorpay_subscription_id)
+            subscription_data = fetch_subscription(subscription_id)
             end_timestamp = subscription_data.get("current_end")
             if end_timestamp:
                 subscription.end_date = timezone.make_aware(datetime.fromtimestamp(end_timestamp))
@@ -1203,7 +1295,8 @@ class ConfirmPaymentView(APIView):
 
             subscription.save()
 
-            PaymentHistory.objects.create(
+            # ✅ Save payment history
+            payment = PaymentHistory.objects.create(
                 msme=subscription.msme,
                 subscription=subscription,
                 razorpay_payment_id=payment_id,
@@ -1213,16 +1306,37 @@ class ConfirmPaymentView(APIView):
                 status="success"
             )
 
-            send_mail(
-                subject="Subscription Successful",
-                message=f"Hi {subscription.msme.brand_name}, your payment was successful!",
-                recipient_list=[subscription.msme.user.email],
-                from_email=settings.DEFAULT_FROM_EMAIL
+            # ✅ RENDER EMAIL TEMPLATE
+            email_html = render_to_string("emails/subscription_confirmation.html", {
+                "user": subscription.msme.user,
+                "subscription": subscription,
+                "payment": payment
+            })
+
+            # ✅ RENDER INVOICE TEMPLATE TO PDF
+            invoice_html = render_to_string("invoices/subscription_invoice.html", {
+                "subscription": subscription,
+                "payment": payment
+            })
+
+            pdf_file = BytesIO()
+            HTML(string=invoice_html).write_pdf(pdf_file)
+            pdf_file.seek(0)
+
+            # ✅ SEND EMAIL
+            email = EmailMessage(
+                subject="🎉 Your Subscription is Confirmed!",
+                body=email_html,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                to=[subscription.msme.user.email]
             )
+            email.content_subtype = "html"
+            email.attach("subscription_invoice.pdf", pdf_file.read(), "application/pdf")
+            email.send()
 
             return Response({
                 "status": True,
-                "message": "Payment confirmed and subscription activated.",
+                "message": "Payment confirmed, subscription activated, and invoice emailed.",
                 "data": {
                     "subscription_id": subscription.razorpay_subscription_id,
                     "payment_id": payment_id
@@ -1230,15 +1344,26 @@ class ConfirmPaymentView(APIView):
             })
 
         except razorpay.errors.SignatureVerificationError:
+            logger.error("Invalid Razorpay signature", exc_info=True)
             return Response({
                 "status": False,
-                "message": "Invalid signature",
+                "message": "Invalid Razorpay signature.",
                 "data": []
             }, status=400)
-        except Exception as e:
+
+        except Subscription.DoesNotExist:
+            logger.error("Subscription not found", exc_info=True)
             return Response({
                 "status": False,
-                "message": str(e),
+                "message": "Subscription not found.",
+                "data": []
+            }, status=404)
+
+        except Exception as e:
+            logger.error(f"Payment confirmation error: {str(e)}", exc_info=True)
+            return Response({
+                "status": False,
+                "message": f"Error: {str(e)}",
                 "data": []
             }, status=500)
 
@@ -1339,50 +1464,109 @@ class PaymentHistoryViewSet(ModelViewSet):
 
 
 # *************************** Webhook Implementation *******************************************
+# *************************** Webhook Implementation *******************************************
 import json
 import hmac
 import hashlib
-from django.views.decorators.csrf import csrf_exempt
-from django.http import JsonResponse, HttpResponseBadRequest
+from datetime import datetime, timedelta
 from django.conf import settings
+from django.utils import timezone
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
+from rest_framework.views import APIView
+from rest_framework.response import Response
+import logging
 
+logger = logging.getLogger(__name__)
 
-@csrf_exempt
-def razorpay_webhook(request):
-    webhook_secret = settings.RAZORPAY_WEBHOOK_SECRET
-
-    # Verify signature
-    received_signature = request.headers.get("X-Razorpay-Signature")
-    generated_signature = hmac.new(
-        webhook_secret.encode(),
-        msg=request.body,
-        digestmod=hashlib.sha256
-    ).hexdigest()
-
-    if received_signature != generated_signature:
-        return HttpResponseBadRequest("Invalid signature")
-
-    data = json.loads(request.body)
-    event = data.get("event")
-
-    if event == "invoice.paid":
-        invoice = data['payload']['invoice']['entity']
-        payment_id = invoice.get("payment_id")
-        invoice_id = invoice.get("id")
-        subscription_id = invoice.get("subscription_id")
+@method_decorator(csrf_exempt, name='dispatch')
+class RazorpayWebhookView(APIView):
+    def post(self, request):
+        payload = request.body
+        received_signature = request.headers.get('X-Razorpay-Signature')
+        event = "unknown"
+        log_entry = None
 
         try:
-            subscription = Subscription.objects.get(razorpay_subscription_id=subscription_id)
-            payment_record = PaymentHistory.objects.filter(
-                razorpay_payment_id="",
-                subscription=subscription
-            ).latest("created_on")
+            data = json.loads(payload)
+            event = data.get("event", "unknown")
 
-            payment_record.razorpay_payment_id = payment_id
-            payment_record.status = "success"
-            payment_record.save()
-        except (PaymentHistory.DoesNotExist, Subscription.DoesNotExist):
-            pass  # Optionally log this
+            # Save the initial log
+            log_entry = RazorpayWebhookLog.objects.create(
+                event=event,
+                payload=data,
+                status="received"
+            )
 
-    return JsonResponse({"status": "ok"})
+            # Signature verification
+            secret = settings.RAZORPAY_WEBHOOK_SECRET
+            expected_signature = hmac.new(
+                key=bytes(secret, 'utf-8'),
+                msg=payload,
+                digestmod=hashlib.sha256
+            ).hexdigest()
+
+            if received_signature != expected_signature:
+                if log_entry:
+                    log_entry.status = "failed"
+                    log_entry.notes = "Invalid signature"
+                    log_entry.save()
+                return Response({"status": False, "message": "Invalid signature"}, status=400)
+
+            if event == "subscription.charged":
+                payload_sub = data.get("payload", {}).get("subscription", {}).get("entity", {})
+                payment_entity = data.get("payload", {}).get("payment", {}).get("entity", {})
+
+                razorpay_subscription_id = payload_sub.get("id")
+                payment_id = payment_entity.get("id")
+
+                subscription = Subscription.objects.get(razorpay_subscription_id=razorpay_subscription_id)
+                subscription.status = "active"
+                subscription.is_active = True
+                subscription.razorpay_payment_id = payment_id
+                subscription.start_date = timezone.now()
+
+                # Set end date
+                end_timestamp = payload_sub.get("current_end")
+                if end_timestamp:
+                    subscription.end_date = timezone.make_aware(datetime.fromtimestamp(end_timestamp))
+                else:
+                    subscription.end_date = timezone.now() + timedelta(days=subscription.membership_plan.duration_days)
+
+                subscription.save()
+
+                # Save payment
+                payment = PaymentHistory.objects.create(
+                    msme=subscription.msme,
+                    subscription=subscription,
+                    razorpay_payment_id=payment_id,
+                    razorpay_signature=received_signature,
+                    amount=subscription.membership_plan.price,
+                    currency="INR",
+                    status="success"
+                )
+
+                # Send confirmation
+                send_subscription_confirmation(subscription, payment)
+
+                # Update log
+                log_entry.status = "processed"
+                log_entry.notes = f"Subscription {subscription.id} activated"
+                log_entry.save()
+
+                return Response({"status": True, "message": "Subscription activated via webhook"})
+
+            # If not processed
+            log_entry.status = "processed"
+            log_entry.notes = f"Unhandled event type: {event}"
+            log_entry.save()
+            return Response({"status": True, "message": "Webhook received (event not handled)"})
+
+        except Exception as e:
+            logger.exception("Error processing Razorpay webhook")
+            if log_entry:
+                log_entry.status = "failed"
+                log_entry.notes = str(e)
+                log_entry.save()
+            return Response({"status": False, "message": str(e)}, status=500)
 
