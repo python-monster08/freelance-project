@@ -201,3 +201,18 @@ class PaymentHistoryAdmin(admin.ModelAdmin):
     search_fields = ("msme__brand_name", "razorpay_payment_id", "razorpay_order_id")
     ordering = ("-created_on",)
     readonly_fields = ("created_on",)
+
+
+@admin.register(RazorpayWebhookLog)
+class RazorpayWebhookLogAdmin(admin.ModelAdmin):
+    list_display = ('event', 'status', 'received_at')
+    search_fields = ('event', 'status')
+    list_filter = ('status', 'received_at')
+    ordering = ('-received_at',)
+    readonly_fields = ('event', 'payload', 'received_at')  # prevent accidental edits
+
+    def has_add_permission(self, request):
+        return False  # disable manual adding
+
+    def has_change_permission(self, request, obj=None):
+        return False  # disable editing
