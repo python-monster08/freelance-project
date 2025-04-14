@@ -1307,14 +1307,14 @@ class ConfirmPaymentView(APIView):
             )
 
             # ✅ RENDER EMAIL TEMPLATE
-            email_html = render_to_string("emails/subscription_confirmation.html", {
+            email_html = render_to_string("subscription_confirmation.html", {
                 "user": subscription.msme.user,
                 "subscription": subscription,
                 "payment": payment
             })
 
             # ✅ RENDER INVOICE TEMPLATE TO PDF
-            invoice_html = render_to_string("invoices/subscription_invoice.html", {
+            invoice_html = render_to_string("subscription_invoice.html", {
                 "subscription": subscription,
                 "payment": payment
             })
