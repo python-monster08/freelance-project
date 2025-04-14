@@ -81,6 +81,54 @@ def verify_signature(payment_id, subscription_id, signature):
 def cancel_auto_renew(subscription_id):
     return razorpay_client.subscription.cancel(subscription_id, {"cancel_at_cycle_end": True})
 
+# ************************************ Generate Invoice PDF *********************************
+from weasyprint import HTML
+from django.template.loader import render_to_string
+
+def generate_invoice_pdf(subscription, payment):
+    html = render_to_string("subscription_invoice.html", {
+        "subscription": subscription,
+        "payment": payment,
+    })
+    return HTML(string=html).write_pdf()
+
+
+# ************************************ core/emails.py ***********************
+from django.core.mail import EmailMessage
+from django.template.loader import render_to_string
+from django.conf import settings
+import logging
+
+logger = logging.getLogger(__name__)
+
+def send_subscription_confirmation(subscription, payment):
+    user = subscription.msme.user
+    subject = f"🎉 Subscription Confirmed – {subscription.membership_plan.name}"
+    
+    html_content = render_to_string("subscription_confirmation.html", {
+        "user": user,
+        "subscription": subscription,
+        "payment": payment,
+    })
+    
+    try:
+        email = EmailMessage(
+            subject,
+            html_content,
+            settings.DEFAULT_FROM_EMAIL,
+            [user.email],
+        )
+        email.content_subtype = "html"
+
+        # Attach invoice PDF
+        pdf_file = generate_invoice_pdf(subscription, payment)
+        email.attach(f"Invoice-{payment.razorpay_payment_id}.pdf", pdf_file, "application/pdf")
+
+        email.send()
+        logger.info(f"[EMAIL SENT] Subscription confirmation sent to {user.email}")
+    
+    except Exception as e:
+        logger.error(f"[EMAIL FAILED] Subscription email to {user.email} failed: {str(e)}")
 
 
 # # razorpay_utils.py
