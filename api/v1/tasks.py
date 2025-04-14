@@ -38,44 +38,80 @@ def send_expiry_alerts():
         except Exception as e:
             print(f"❌ Failed for {sub.msme.user.email}: {str(e)}")
 
+
+
+import logging
+
+logger = logging.getLogger(__name__)
+
 @shared_task
 def check_and_auto_renew_subscriptions():
     now = timezone.now()
-    expiring = Subscription.objects.filter(end_date__lte=now, is_active=True, auto_renew=True)
+    expiring_subs = Subscription.objects.filter(end_date__lte=now, is_active=True, auto_renew=True)
 
-    for sub in expiring:
+    for sub in expiring_subs:
         try:
+            # Fetch current subscription status from Razorpay
             razorpay_sub = fetch_subscription(sub.razorpay_subscription_id)
-            print("Subscription Fetched:", razorpay_sub)
+            logger.info(f"[🔄 Fetched] {sub.msme.brand_name} | Status: {razorpay_sub['status']}")
 
-            if razorpay_sub['status'] == 'active' and razorpay_sub.get("current_end"):
-                sub.start_date = now
-                sub.end_date = now + timedelta(days=sub.membership_plan.duration_days)
-                sub.save()
-
-                invoice_id = razorpay_sub.get("latest_invoice_id", "")
-                payment_id = ""
-                signature = ""
-
-                if invoice_id:
-                    invoice = razorpay_client.invoice.fetch(invoice_id)
-                    payment_id = invoice.get("payment_id") or ""
-                    # Optional: If you have webhook signature validation, include it here
-                    print("Invoice fetched:", invoice)
-
-                PaymentHistory.objects.create(
-                    msme=sub.msme,
-                    subscription=sub,
-                    razorpay_payment_id=payment_id,
-                    razorpay_order_id='',
-                    razorpay_signature=signature,
-                    amount=sub.membership_plan.price,
-                    currency="INR",
-                    status="success" if payment_id else "pending"
-                )
+            # Razorpay should trigger webhook. If not, this fallback checks status
+            if razorpay_sub['status'] == 'active':
+                current_end = razorpay_sub.get('current_end')
+                if current_end:
+                    new_end_date = timezone.make_aware(datetime.fromtimestamp(current_end))
+                    if new_end_date > sub.end_date:
+                        sub.end_date = new_end_date
+                        sub.start_date = now
+                        sub.save()
+                        logger.info(f"[✅ Auto-renewed] {sub.msme.brand_name} | New End: {sub.end_date}")
+                else:
+                    logger.warning(f"[⚠️ No End Date] {sub.msme.brand_name}")
+            else:
+                logger.warning(f"[❌ Not Active] {sub.msme.brand_name} | Razorpay Status: {razorpay_sub['status']}")
 
         except Exception as e:
-            print(f"[Renew Error] {sub.msme.brand_name}: {str(e)}")
+            logger.exception(f"[🛑 Error] {sub.msme.brand_name} | {str(e)}")
+
+# working code
+# @shared_task
+# def check_and_auto_renew_subscriptions():
+#     now = timezone.now()
+#     expiring = Subscription.objects.filter(end_date__lte=now, is_active=True, auto_renew=True)
+
+#     for sub in expiring:
+#         try:
+#             razorpay_sub = fetch_subscription(sub.razorpay_subscription_id)
+#             print("Subscription Fetched:", razorpay_sub)
+
+#             if razorpay_sub['status'] == 'active' and razorpay_sub.get("current_end"):
+#                 sub.start_date = now
+#                 sub.end_date = now + timedelta(days=sub.membership_plan.duration_days)
+#                 sub.save()
+
+#                 invoice_id = razorpay_sub.get("latest_invoice_id", "")
+#                 payment_id = ""
+#                 signature = ""
+
+#                 if invoice_id:
+#                     invoice = razorpay_client.invoice.fetch(invoice_id)
+#                     payment_id = invoice.get("payment_id") or ""
+#                     # Optional: If you have webhook signature validation, include it here
+#                     print("Invoice fetched:", invoice)
+
+#                 PaymentHistory.objects.create(
+#                     msme=sub.msme,
+#                     subscription=sub,
+#                     razorpay_payment_id=payment_id,
+#                     razorpay_order_id='',
+#                     razorpay_signature=signature,
+#                     amount=sub.membership_plan.price,
+#                     currency="INR",
+#                     status="success" if payment_id else "pending"
+#                 )
+
+#         except Exception as e:
+#             print(f"[Renew Error] {sub.msme.brand_name}: {str(e)}")
 
 # @shared_task
 # def check_and_auto_renew_subscriptions():
