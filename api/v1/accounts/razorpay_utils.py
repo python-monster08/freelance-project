@@ -90,7 +90,7 @@ def cancel_auto_renew(subscription_id):
     return razorpay_client.subscription.cancel(subscription_id, {"cancel_at_cycle_end": True})
 
 # ************************************ Generate Invoice PDF *********************************
-from weasyprint import HTML
+# from weasyprint import HTML
 from django.template.loader import render_to_string
 
 def generate_invoice_pdf(subscription, payment):

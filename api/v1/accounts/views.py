@@ -1388,7 +1388,7 @@ from io import BytesIO
 import razorpay
 import logging
 
-from weasyprint import HTML
+# from weasyprint import HTML
 
 logger = logging.getLogger(__name__)
 
@@ -1850,7 +1850,7 @@ class CustomerCreateViewSet(ModelViewSet):
             instance = Customer.objects.filter(id=int(pk)).last()
             if not instance:
                 return http_400_response(message=NOT_FOUND)
-            serialized_data = 'UpdateCustomerSerializer'(instance,request.data,context={'user':request.user,'request':request})
+            serialized_data = UpdateCustomerSerializer(instance,request.data,context={'user':request.user,'request':request})
             if serialized_data.is_valid():
                 return http_200_response(message=USER_UPDATE)
             else:
