@@ -64,3 +64,6 @@ settings.json
 .vscode/tasks.json
 .vscode/launch.json
 .vscode/extensions.json
+
+db.sqlite3
+.db.sqlite3

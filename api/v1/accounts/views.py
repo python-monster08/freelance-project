@@ -307,6 +307,107 @@ class OutletDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 
 
+# class UpdateProfileView(generics.RetrieveUpdateDestroyAPIView):
+#     """
+#     API for retrieving, updating, and soft deleting user profiles
+#     - Retrieve includes MSMEProfile + Outlets + UserMaster fields
+#     - Update modifies profile but NOT outlets
+#     - Delete only sets `is_deleted = True`
+#     """
+#     serializer_class = UpdateProfileSerializer
+#     permission_classes = [IsAuthenticated]
+#     parser_classes = [MultiPartParser, FormParser, JSONParser]  # Supports file uploads
+
+#     def get_object(self):
+#         """Retrieve the authenticated user's profile, ensuring it exists"""
+#         return get_object_or_404(MSMEProfile, user=self.request.user, is_deleted=False)
+
+#     def retrieve(self, request, *args, **kwargs):
+#         """Custom response format for retrieving profile"""
+#         try:
+#             instance = self.get_object()
+#             serializer = self.get_serializer(instance)
+#             return Response(
+#                 {"status": True, "message": "Profile retrieved successfully", "data": serializer.data},
+#                 status=status.HTTP_200_OK
+#             )
+#         except ObjectDoesNotExist:
+#             return Response(
+#                 {"status": False, "message": "Profile not found", "data": {}},
+#                 status=status.HTTP_404_NOT_FOUND
+#             )
+#         except Exception:
+#             return Response(
+#                 {"status": False, "message": "An unexpected error occurred", "data": {}},
+#                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
+#             )
+
+#     def perform_update(self, serializer):
+#         """Update UserMaster fields separately before saving MSMEProfile"""
+#         profile = serializer.instance
+#         user = profile.user
+
+#         user_data = self.request.data
+#         user.first_name = user_data.get("first_name", user.first_name)
+#         user.last_name = user_data.get("last_name", user.last_name)
+#         user.phone_number = user_data.get("phone_number", user.phone_number)
+#         user.is_profile_update = True
+#         user.save()
+
+#         profile_data = serializer.validated_data
+#         serializer.save(**profile_data)
+
+#     def update(self, request, *args, **kwargs):
+#         """Custom response format after updating the profile"""
+#         try:
+#             partial = kwargs.pop("partial", False)
+#             instance = self.get_object()
+#             serializer = self.get_serializer(instance, data=request.data, partial=partial)
+#             serializer.is_valid(raise_exception=True)
+#             self.perform_update(serializer)
+#             return Response(
+#                 {"status": True, "message": "Profile updated successfully", "data": serializer.data},
+#                 status=status.HTTP_200_OK
+#             )
+#         except ValidationError as e:
+#             return Response(
+#                 {"status": False, "message": "Validation error", "data": e.detail},
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
+#         except Exception:
+#             return Response(
+#                 {"status": False, "message": "An error occurred while updating profile", "data": {}},
+#                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
+#             )
+
+#     def perform_destroy(self, instance):
+#         """Soft delete profile (set is_deleted = True)"""
+#         instance.is_deleted = True
+#         instance.user.is_active = False
+#         instance.user.save()
+#         instance.save()
+
+#     def destroy(self, request, *args, **kwargs):
+#         """Custom response format for soft deletion"""
+#         try:
+#             instance = self.get_object()
+#             self.perform_destroy(instance)
+#             return Response(
+#                 {"status": True, "message": "Profile deleted successfully", "data": {}},
+#                 status=status.HTTP_200_OK
+#             )
+#         except ObjectDoesNotExist:
+#             return Response(
+#                 {"status": False, "message": "Profile not found", "data": {}},
+#                 status=status.HTTP_404_NOT_FOUND
+#             )
+#         except Exception:
+#             return Response(
+#                 {"status": False, "message": "An error occurred while deleting profile", "data": {}},
+#                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
+#             )
+
+
 class UpdateProfileView(generics.RetrieveUpdateDestroyAPIView):
     """
     API for retrieving, updating, and soft deleting user profiles
@@ -336,9 +437,12 @@ class UpdateProfileView(generics.RetrieveUpdateDestroyAPIView):
                 {"status": False, "message": "Profile not found", "data": {}},
                 status=status.HTTP_404_NOT_FOUND
             )
-        except Exception:
+        except Exception as e:
+            import traceback
+            traceback.print_exc()  # print full stacktrace for debugging
+            print("ERROR:", str(e))  # print readable error message
             return Response(
-                {"status": False, "message": "An unexpected error occurred", "data": {}},
+                {"status": False, "message": "An unexpected error occurred", "data": {"error": str(e)}},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
@@ -406,9 +510,6 @@ class UpdateProfileView(generics.RetrieveUpdateDestroyAPIView):
                 {"status": False, "message": "An error occurred while deleting profile", "data": {}},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-
-
-
 
 class CustomerCreateView(APIView):
     """API to add, update, and delete customers."""
