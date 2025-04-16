@@ -1,3 +1,4 @@
+from http.client import FOUND, NOT_FOUND, UNAUTHORIZED
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, status
 from rest_framework.views import APIView
@@ -7,6 +8,13 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate, get_user_model
 from api.v1.models import *
+from msme_marketing_analytics.message import DATA_FOUND_SUCCESS, NO_USER, USER_DELETE, USER_ID, USER_UPDATE
+from msme_marketing_analytics.pagination import MSMEDefaultPaginationClass
+from msme_marketing_analytics.response import *
+from msme_marketing_analytics.response import http_200_response
+from msme_marketing_analytics.response import http_200_response_pagination
+from msme_marketing_analytics.response import http_500_response
+from msme_marketing_analytics.response import http_400_response
 from .serializers import *
 import requests
 from django.contrib.auth.hashers import check_password
@@ -19,7 +27,31 @@ from rest_framework.pagination import PageNumberPagination
 from django.db import IntegrityError, DatabaseError
 from django.core.exceptions import ObjectDoesNotExist
 
-
+from msme_marketing_analytics.pagination import *
+from msme_marketing_analytics.response import *
+from rest_framework.viewsets import ModelViewSet
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from django.db.models import Q
+import pandas as pd
+import json
+from django.template.loader import render_to_string
+import re
+from django.contrib.auth.hashers import make_password
+from rest_framework_simplejwt.tokens import AccessToken
+from django.http import HttpResponse
+from django.contrib import messages
+from django.template.loader import render_to_string
+from rest_framework.parsers import FormParser, MultiPartParser, JSONParser
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
+from itertools import chain
+from django.db.models import Q
+from rest_framework import filters
+from collections import defaultdict
+from rest_framework.exceptions import AuthenticationFailed
+from django.db.models import Count
+from msme_marketing_analytics.logs import logException
 
 
 UserMaster = get_user_model()
@@ -1569,4 +1601,186 @@ class RazorpayWebhookView(APIView):
                 log_entry.notes = str(e)
                 log_entry.save()
             return Response({"status": False, "message": str(e)}, status=500)
+
+
+
+
+#### used model viewset
+
+
+### Sub admin all api
+class SubAdminRegisterView(ModelViewSet):
+    permission_classes = (IsAuthenticated,) 
+    http_method_names = ['get', 'post', 'put', 'delete']
+    serializer_class = SubAdminRegisterSerializer
+    pagination_class = MSMEDefaultPaginationClass
+    queryset = UserMaster.objects.all()
+    # parser_classes = (FormParser, MultiPartParser)
+ 
+    def get_serializer_class(self):
+        if self.action == "create":
+            return SubAdminRegisterSerializer
+        elif self.action == "retrieve":
+            return GetSubAdminSerializer
+        elif self.action == "update":
+            return UpdateSubAdminSerializer
+        else:
+            return self.serializer_class
+
+
+
+    def create(self, request, *args, **kwargs):
+        try:
+            if not request.auth:
+                raise AuthenticationFailed("Invalid or missing access token.")
+
+            if request.user.user_role_id in [1,2,]:
+                serializer = self.get_serializer(data=request.data,context={"request":request,})
+                serializer.context['request'] = request  
+                if serializer.is_valid():
+                    serializer.save()  
+                    return http_201_response(message="User created successfully")
+                else:
+                    if list(serializer.errors.keys())[0] != "error":
+                        return http_400_response(message=f"{list(serializer.errors.keys())[0]} : {serializer.errors[list(serializer.errors.keys())[0]][0]}")
+                    else:
+                        return http_400_response(message=serializer.errors[list(serializer.errors.keys())[0]][0])
+            else:
+                return http_400_response(message=UNAUTHORIZED)
+        except Exception as e:
+            return http_500_response(error=str(e))
+        
+
+    
+
+    type_search = openapi.Parameter('search', in_=openapi.IN_QUERY, type=openapi.TYPE_STRING)
+    type_status = openapi.Parameter('status', in_=openapi.IN_QUERY, type=openapi.TYPE_STRING)
+    type_order_by = openapi.Parameter('order_by', in_=openapi.IN_QUERY, type=openapi.TYPE_STRING, description="Sort by 'name' or 'email'")
+
+    @swagger_auto_schema(manual_parameters=[type_search, type_status, type_order_by])
+    def list(self, request):
+        try:
+            search = self.request.query_params.get('search')
+            role_id = self.request.query_params.get('role_id')
+            status = self.request.query_params.get('status')
+            order_by = self.request.query_params.get('order_by')
+
+            if role_id:
+                queryset = UserMaster.objects.filter(user_role_id=role_id, is_deleted=False, is_active=True)
+            else:
+                queryset = UserMaster.objects.filter(user_role_id__in=[2,], is_deleted=False, is_active=True, created_by_id=request.user.id).order_by('-created_on')
+
+            queryset = queryset.values(
+                'id', 'employee_id', 'full_name', 'email', 'profile_picture', 'phone_number',
+                'user_role_id', 'user_role__role', 'address', 'description', 'is_active',
+                'created_on', 'assigned_by', 'assigned_by__full_name', 'created_by', 'created_by__full_name'
+            ).order_by('-created_on')
+
+            dataframe_df = pd.DataFrame((queryset))
+
+            if not dataframe_df.empty:
+                for index, row in dataframe_df.iterrows():
+                    if dataframe_df.at[index, "profile_picture"]:
+                        dataframe_df.at[index, "image"] = str(request.build_absolute_uri('/'))[:-1] + "/media/" + str(dataframe_df.at[index, "profile_picture"])
+                    else:
+                        dataframe_df.at[index, "image"] = ""
+
+                dataframe_df['employee_id'] = dataframe_df['employee_id'].fillna("").astype(str)
+
+                if 'id' not in dataframe_df.columns:
+                    return http_200_response(message=NOT_FOUND, data=[])
+
+                if dataframe_df.empty:
+                    return http_200_response(message=NOT_FOUND, data=[])
+
+                dataframe_df.rename(columns={
+                    'role__role': 'role_name',
+                    'bio': 'description',
+                    'full_name': 'name',
+                    'state__name': 'state_name',
+                    'city__name': 'city_name',
+                    'phone_number': 'phone_number',
+                    'assigned_by__full_name': 'assigned_by_name',
+                    'created_by__full_name': 'created_by_name'
+                }, inplace=True)
+
+                if search:
+                    search = search.strip()
+                    search = re.escape(search)
+                    dataframe_df = SearchUserRecord(dataframe_df, search)
+
+                # Apply ordering if valid order_by is given
+                if order_by in ['name', 'email']:
+                    dataframe_df.sort_values(by=[order_by], ascending=True, inplace=True)
+
+                if 'created_on' in dataframe_df.columns:
+                    dataframe_df['created_on'] = dataframe_df['created_on'].apply(lambda x: x.strftime('%d-%m-%Y & %I:%M %p') if pd.notna(x) else 'Invalid Date')
+                else:
+                    dataframe_df['created_on'] = ""
+
+                dataframe_df.drop(columns=['profile_picture'], inplace=True)
+                dataframe_df = dataframe_df.fillna("")
+                json_list = dataframe_df.to_json(orient='records')
+                json_list = json.loads(json_list)
+
+                paginator = MSMEDefaultPaginationClass()
+                paginator.message = DATA_FOUND_SUCCESS
+                result_page = paginator.paginate_queryset(json_list, request)
+                return paginator.get_paginated_response(result_page)
+            else:
+                return http_200_response_pagination(message=NOT_FOUND)
+
+        except Exception as e:
+            logException(e)
+            return http_500_response(error=str(e))
+
+    # def retrieve(self, request, pk):
+    #     queryset = UserMaster.objects.filter(id=pk).all().values('id',"full_name",'email','phone_number','user_role','country','is_active')
+    #     if queryset:
+    #         subadmin_list_dataframe = pd.DataFrame(queryset)
+    #         subadmin_list_json = subadmin_list_dataframe.to_json(orient='records')
+    #         subadmin_list_json = json.loads(subadmin_list_json)
+            
+    #         sub_admin_roles = MapRolesAccessToSubAdmin.objects.filter(user_id=pk,).all().values('id','access_id','access__access')
+    #         sub_admin_roles_dataframe = pd.DataFrame(sub_admin_roles)
+    #         sub_admin_roles_dataframe = sub_admin_roles_dataframe.rename(columns={'access__access':'access'}) 
+    #         sub_admin_roles_json = sub_admin_roles_dataframe.to_json(orient='records')
+    #         sub_admin_roles_json = json.loads(sub_admin_roles_json)
+
+    #         if sub_admin_roles:
+    #             subadmin_list_json[0]['access'] = sub_admin_roles_json
+    #         else:
+    #             subadmin_list_json[0]['access'] = []
+    #         return http_200_response(message=FOUND,data=subadmin_list_json)  
+    #     return http_200_response(message=NOT_FOUND)
+
+    def destroy(self, request, pk=None):
+        if pk:
+            user = UserMaster.objects.filter(id=pk, is_deleted=False).last()
+            if user:
+                user.is_deleted=True
+                user.save()
+                return http_200_response(message=USER_DELETE)
+            else:
+                return http_400_response(message=NO_USER)
+        else:
+            return http_400_response(message=USER_ID)
+
+
+    def update(self, request, pk ,*args, **kwargs):
+        try:
+            instance = UserMaster.objects.filter(id=int(pk)).last()
+            if not instance:
+                return http_400_response(message=NOT_FOUND)
+            serialized_data = 'UpdateSubAdminSerializer'(instance,request.data,context={'user':request.user,'request':request})
+            if serialized_data.is_valid():
+                return http_200_response(message=USER_UPDATE)
+            else:
+                if list(serialized_data.errors.keys())[0] != "error":
+                    return http_400_response(message=f"{list(serialized_data.errors.keys())[0]} : {serialized_data.errors[list(serialized_data.errors.keys())[0]][0]}")
+                else:
+                    return http_400_response(message=serialized_data.errors[list(serialized_data.errors.keys())[0]][0])
+        except Exception as e:
+            logException(e)
+            return http_500_response(error=str(e))
 

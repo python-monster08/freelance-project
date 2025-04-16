@@ -1,10 +1,23 @@
 from rest_framework import serializers
+from api.v1.accounts.razorpay_utils import generate_emp_id
 from api.v1.models import *
 from django.contrib.auth import get_user_model
 from django.utils.translation import gettext_lazy as _
 from django.core.exceptions import ValidationError
 from django.conf import settings
 from urllib.parse import urljoin
+import re
+# Email Regular Expression
+email_regex = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,7}\b'
+# Mobil Number Regular Expression
+Pattern = re.compile("^\\+?[1-9][0-9]{7,14}$")
+# from api.v1.account.utils import get_access_tokens_for_user, get_refres_tokens_for_user
+from api.v1.models import UserMaster
+from django.db import transaction
+from django.contrib.auth.hashers import make_password,check_password
+from django.core.validators import FileExtensionValidator
+from rest_framework_simplejwt.tokens import AccessToken
+from django.core.mail import EmailMultiAlternatives  
 
 User = get_user_model()
 
@@ -476,3 +489,138 @@ class PaymentHistorySerializer(serializers.ModelSerializer):
     class Meta:
         model = PaymentHistory
         fields = "__all__"
+
+
+
+
+##########################################
+
+class SubAdminRegisterSerializer(serializers.Serializer):
+    assigned_by = serializers.CharField(max_length=60, required=False,allow_null=True)
+    name = serializers.CharField(max_length=20, required=True)
+    email = serializers.EmailField(max_length=60, required=True)
+    # address = serializers.CharField(max_length=60, required=True)
+    # access = serializers.ListSerializer(child=RoleAccessWithSubModule())
+    class Meta:
+        model = UserMaster
+        fields = ['assigned_by','name','email','role','access']
+
+
+    def validate(self, attrs):
+        request=self.context.get('request')
+        assigned_by = attrs.get('assigned_by')
+        role_access = attrs.get('access')
+        name=attrs.get('name')
+        email=attrs.get('email')
+
+        role = request.user.user_role.id
+
+        if not role_access:
+            raise serializers.ValidationError({'error':'role access are mandatory fields.'})
+
+        if role not in [1,2]:
+            raise serializers.ValidationError({"error": "Registration is only allowed for admin."})
+
+        with transaction.atomic():
+        
+            if not re.fullmatch(r'^[A-Za-z\s]+$', name):
+                raise serializers.ValidationError({'error':"Name must contain only alphabets."})
+            
+            if email:
+                if UserMaster.objects.filter(email=email).exists():
+                    raise serializers.ValidationError({'error':'User with this email already exists.'})
+                if not re.fullmatch(email_regex, email):
+                    raise serializers.ValidationError({'error':'Please enter a valid email.'})
+            else:
+                raise serializers.ValidationError({'error':'Please provide email.'})
+        
+        return attrs
+
+    def create(self, validated_data):
+        with transaction.atomic():
+            request=self.context.get('request')
+            role_access = validated_data.get('access')
+            assigned_by = validated_data.get('assigned_by')
+            role_data=request.user.role.id
+            user_code=generate_emp_id(role_data)
+            user = UserMaster(
+                full_name=validated_data['name'],
+                # phone_number=validated_data['phone_number'],
+                email=validated_data['email'],
+                username=validated_data['email'],
+                # address=validated_data['address'],
+                user_role_id=2,
+                user_code=user_code,
+                is_active=True,
+                created_by_id=int(request.user.id),
+            )
+            user.save()
+            user_id = user.id
+
+        
+            ## Send welcome email
+            send_credentials_email(user)
+
+        return user
+
+class UpdateSubAdminSerializer(serializers.Serializer):
+    assigned_by = serializers.CharField(max_length=60, required=False,allow_null=True)
+    name = serializers.CharField(required = False,error_messages={'invalid': 'Please enter a valid name.'})
+    role_id = serializers.CharField(required = False,allow_null=True,error_messages={'invalid': 'Please enter a valid role.'})
+    class Meta:
+        
+        model = UserMaster
+        fields = ['id','name','role_id','access','assigned_by']
+
+    def validate(self,attrs):
+        with transaction.atomic():
+            request=self.context.get('request')
+            user = self.context.get('user')
+            userMaster = self.instance
+            name = attrs.get('name')
+            role_id = attrs.get('role_id')
+            role_access = attrs.get('access')
+            assigned_by = attrs.get('assigned_by')
+        
+            role = request.user.user_role.id
+            if not (int(role) in [1,2]):    
+                raise serializers.ValidationError({'error':'Please provide valid role id.'})
+            
+            if not re.fullmatch(r'^[A-Za-z\s]+$', name):
+                raise serializers.ValidationError({'error':"Name must contain only alphabets."})
+            
+            
+            userMaster.full_name = name if name else userMaster.full_name
+            userMaster.user_role_id=int(role_id) if role_id else userMaster.user_role_id
+            userMaster.updated_by_id = int(request.user.id)       
+            userMaster.assigned_by_id=int(request.user.id)
+            # userMaster.created_on=datetime.datetime.now()
+
+            userMaster.save()
+
+            
+
+            
+            return attrs
+
+class GetSubAdminSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserMaster
+        fields = ['id', 'full_name', 'email', 'phone_number', 'address', 'description', 'created_by','assigned_by',]
+    
+
+    def to_representation(self, instance):
+        request = self.context.get('request')
+        data = super().to_representation(instance)
+        data['name'] = data.pop('full_name') if instance.full_name else ""
+        data['email'] = data.pop('email') if instance.email else ""
+        data['phone_number'] = data.pop('phone_number') if instance.phone_number else ""
+        data['address'] = data.pop('address') if instance.address else ""
+        data['image'] = data.pop('profile_picture') if instance.profile_picture else ""
+        data['created_by'] = data.pop('created_by') if instance.created_by else None
+        data['created_by_name'] = instance.created_by.full_name if instance.created_by else ""
+        data['assigned_by'] = data.pop('assigned_by') if instance.assigned_by else None
+        data['assigned_by_name'] = instance.assigned_by.full_name if instance.assigned_by else ""
+        data['description'] = data.pop('description') if instance.description else ""
+
+        return data

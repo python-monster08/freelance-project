@@ -5,6 +5,13 @@ from django.utils.timezone import now
 from django.utils.text import slugify
 
 # Create your models here.
+class CustomBaseModel(models.Model):
+    is_active = models.BooleanField(default=False)
+    is_deleted = models.BooleanField(default=False)
+    # created_by = models.ForeignKey("MSMEProfile", on_delete=models.DO_NOTHING, null=True, blank= True)
+    # updated_by = models.ForeignKey("MSMEProfile", on_delete=models.DO_NOTHING, null=True, blank= True)
+    created_on = models.DateTimeField(auto_now_add=True,null=True,blank=True)
+    updated_on = models.DateTimeField(auto_now=True,null=True,blank=True)
 
 class UserRole(models.Model):
     """Role model for defining user roles"""
@@ -90,6 +97,7 @@ class UserMaster(AbstractUser):
     phone_number = models.CharField(max_length=15, unique=True)
     # role = models.CharField(max_length=20, choices=ROLE_CHOICES, default="executive")
     role = models.ForeignKey(UserRole, on_delete=models.SET_NULL, null=True, blank=True)  # Updated field
+    user_code=models.CharField(max_length=50,null=True,blank=True)
     social_account_id = models.CharField(max_length=255, blank=True, null=True)
     social_account_provider = models.CharField(max_length=50, blank=True, null=True)
     is_active = models.BooleanField(default=False)
@@ -177,31 +185,6 @@ class Outlet(models.Model):
         self.save(update_fields=["is_deleted"])
 
         
-class Customer(models.Model):
-    """ Model for storing customer details """
-
-    GENDER_CHOICES = [
-        ('male', 'Male'),
-        ('female', 'Female'),
-        ('other', 'Other'),
-    ]
-    msme = models.ForeignKey(MSMEProfile, on_delete=models.CASCADE, related_name="customers", null=True, blank=True)
-    first_name = models.CharField(max_length=100)
-    last_name = models.CharField(max_length=100)
-    email = models.EmailField()
-    whatsapp_number = models.CharField(max_length=15)
-    gender = models.CharField(max_length=10, choices=GENDER_CHOICES, null=True, blank=True) 
-    dob = models.DateField(null=True, blank=True)
-    anniversary_date = models.DateField(null=True, blank=True)
-    city = models.CharField(max_length=100)
-
-    def __str__(self):
-        return f"{self.first_name} {self.last_name}"
-
-    class Meta:
-        db_table = "customer"
-        verbose_name = "Customer"
-        verbose_name_plural = "Customers"
 
 
 class CustomerFeedback(models.Model):
@@ -222,7 +205,7 @@ class CustomerFeedback(models.Model):
         ("Frustrated", "Frustrated"),
     ]
 
-    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name="feedbacks")
+    customer = models.ForeignKey('Customer', on_delete=models.CASCADE, related_name="feedbacks")
     outlet = models.ForeignKey(Outlet, on_delete=models.CASCADE, related_name="feedbacks")
 
     first_name = models.CharField(max_length=100)
@@ -508,36 +491,117 @@ class RazorpayWebhookLog(models.Model):
         db_table = "Razorpay_webhook_log"
         verbose_name = "Razorpay Webhook Log"
         verbose_name_plural = "Razorpay Webhook Logs"
-
-
-# {
-# "campaign_channel":[1,2],   
-# "campaign_outlets": ["main-1", "sub-1"],
-# "reward_choice":1,  
-# "profession":1,
-# "campaign_type":1,
-# "name":'Spring Sale Campaign 2025', 
-# "campaign_message":'Get 20% off on all items!',
-# "campaign_reward_choice_text":'20%',
-# "campaign_expiry_date":'2025-03-01',
-# "button_url":'https://yourwebsite.com/offer',
-# "campaign_bg_image":'cat.png',    
-# "campaign_logo":'rat.png'      
-# }
-
-
-
-# name:"Spring Sale Campaign"
-# campaign_message:"Big Spring Sale! Get 20% OFF on all products. Hurry, limited time only!"
-# campaign_expiry_date:"2025-03-01" 
-# button_url: "https://yourwebsite.com/offer"
-# reward_choice:1
-# profession:1
-# campaign_type:1
-# campaign_reward_choice_text: "Flat 20% Discount on All Orders!"
-# campaign_channel: [1,2,3]
-# campaign_outlets: ["main-1", "sub-1"]
-# campaign_logo: <Upload logo file>
-# campaign_bg_image: <Upload background image file>
-
-
+ 
+ 
+class Customer(CustomBaseModel):
+    """ Model for storing customer details """
+ 
+    GENDER_CHOICES = [
+        ('male', 'Male'),
+        ('female', 'Female'),
+        ('other', 'Other'),
+    ]
+    msme = models.ForeignKey(MSMEProfile, on_delete=models.CASCADE, related_name="customers", null=True, blank=True)
+    first_name = models.CharField(max_length=100)
+    last_name = models.CharField(max_length=100)
+    email = models.EmailField()
+    whatsapp_number = models.CharField(max_length=15)
+    gender = models.CharField(max_length=10, choices=GENDER_CHOICES, null=True, blank=True)
+    dob = models.DateField(null=True, blank=True)
+    anniversary_date = models.DateField(null=True, blank=True)
+    city = models.CharField(max_length=100)
+    created_by = models.ForeignKey("MSMEProfile", on_delete=models.DO_NOTHING, null=True, blank= True)
+    updated_by = models.ForeignKey("MSMEProfile", on_delete=models.DO_NOTHING, null=True, blank= True)
+ 
+    def __str__(self):
+        return f"{self.first_name} {self.last_name}"
+ 
+    class Meta:
+        db_table = "customer"
+        verbose_name = "Customer"
+        verbose_name_plural = "Customers"
+ 
+class ReferralMaster(CustomBaseModel):
+ 
+    customer = models.ForeignKey(Customer, related_name='referrals_made', on_delete=models.CASCADE)
+    referral_code = models.CharField(max_length=10,null=True, blank=True)
+    date_referred = models.DateTimeField(auto_now_add=True)
+   
+ 
+    def __str__(self):
+        return f"Referral: {self.referrer} referred {self.referee} with code {self.referral_code}"
+ 
+    class Meta:
+        db_table = "referral_master"
+        verbose_name = "Referral master"
+        verbose_name_plural = "Referral master"
+ 
+ 
+class RefereeMaster(CustomBaseModel):
+    customer = models.ForeignKey("Customer", related_name='referees_made', on_delete=models.CASCADE)
+    referral = models.ForeignKey('ReferralMaster', related_name='referrals_received', on_delete=models.CASCADE)
+    referral_code = models.CharField(max_length=10,null=True, blank=True)
+    date_referred = models.DateTimeField(auto_now_add=True)
+    
+ 
+    def __str__(self):
+        return f"Referral: {self.referrer} referred {self.referee} with code {self.referral_code}"
+ 
+    class Meta:
+        db_table = "referee_master"
+        verbose_name = "Referee Master"
+        verbose_name_plural = "Referee Master"
+ 
+ 
+class ReferralSetting(models.Model):
+    OFFER_TYPES = (
+        (1, "Discount in %"),
+        (2, "Discount in INR"),
+        (3, "Freebie"),
+    )
+    EXPIRY_TYPES = (
+        (1, "Days"),
+        (2, "Weeks"),
+        (3, "Months"),
+    )
+    REMINDER_TYPES = (
+        (1, "Days before expiry"),
+        (2, "Hours before expiry"),
+    )
+    CONTACT_TYPES = (
+        (1, "Contact no."),
+        (2, "Website"),
+    )
+    TIME_UNIT = (
+        (1, "Hours"),
+        (2, "Minutes"),
+    )
+    msme = models.OneToOneField("MSMEProfile", on_delete=models.CASCADE, related_name="referral_settings", null=True, blank=True)
+    selected_offer = models.IntegerField(choices=OFFER_TYPES, null=True, blank=True)
+    selected_offer_text = models.CharField(max_length=100, null=True, blank=True)  # ✅ kept only once
+    reward_expire_type = models.IntegerField(choices=EXPIRY_TYPES, null=True, blank=True)
+    reminder_type = models.IntegerField(choices=REMINDER_TYPES, blank=True, null=True)
+    reminder_value = models.CharField(max_length=50, blank=True, null=True)
+    contact_type = models.IntegerField(choices=CONTACT_TYPES, blank=True, null=True)
+    contact_value = models.CharField(max_length=255, blank=True, null=True)
+    referral_terms = models.JSONField(default=list, blank=True, null=True)
+    referrer_discount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    min_purchase = models.CharField(max_length=50, blank=True, null=True)
+    post_purchase = models.CharField(max_length=50, blank=True, null=True)
+    time_unit = models.IntegerField(choices=TIME_UNIT, null=True, blank=True)
+    time_value = models.CharField(max_length=50, blank=True, null=True)
+    referee_terms = models.JSONField(default=list, blank=True, null=True)
+    channels = models.ManyToManyField("Channel")
+    created_on = models.DateTimeField(auto_now_add=True)
+    updated_on = models.DateTimeField(auto_now=True)
+    is_deleted = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=False)
+    created_by = models.ForeignKey(UserMaster, on_delete=models.SET_NULL, null=True, blank=True)
+ 
+    def __str__(self):
+        return f"{self.msme.brand_name} Referral Settings" if self.msme else "Unassigned Referral Setting"
+ 
+    class Meta:
+        db_table = "referral_setting"
+        verbose_name = "Referral Setting"
+        verbose_name_plural = "Referral Settings"

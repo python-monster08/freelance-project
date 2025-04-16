@@ -1,6 +1,14 @@
+import random
+import string
 import razorpay
 import time
 from django.conf import settings
+import pandas as pd
+
+from api.v1.models import UserMaster
+from msme_marketing_analytics.settings import EMAIL_HOST_USER
+from django.core.mail import EmailMultiAlternatives
+
 
 razorpay_client = razorpay.Client(
     auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET)
@@ -257,3 +265,77 @@ def send_subscription_confirmation(subscription, payment):
 #         'razorpay_subscription_id': subscription_id,
 #         'razorpay_signature': signature
 #     })
+
+
+def SearchUserRecord(dataframe, search):
+    try:
+        results = dataframe[
+            dataframe['name'].str.contains(search, case=False)|
+            dataframe['email'].str.contains(search, case=False) |
+            dataframe['phone_number'].str.contains(search, case=False) |
+            dataframe['role_name'].str.contains(search, case=False) |
+            dataframe['created_by_name'].str.contains(search, case=False) |
+            dataframe['assigned_by_name'].str.contains(search, case=False) |
+            dataframe['assigned_by_email'].str.contains(search, case=False) |
+            dataframe['employee_id'].str.contains(search, case=False)
+            ]
+        return results
+    except:
+        return pd.DataFrame()
+    
+
+def generate_emp_id(role_id):
+    S = 10  # Number of characters in the numeric part
+    role_prefix_map = {
+        '1': 'AD',
+        '2': 'ME',
+        '3': 'EX',
+       
+    }
+
+    prefix = role_prefix_map.get(str(role_id), "")  # Default to empty if role_id is invalid
+
+    if not prefix:
+        return None  # Return None for invalid roles
+
+    while True:
+        # Generate a 10-digit random number
+        ran_data = ''.join(random.choices(string.digits, k=S))
+        new_emp_id = f"{prefix}{ran_data}"
+
+        # Check uniqueness in the database
+        if not UserMaster.objects.filter(user_code=new_emp_id).exists():
+            return new_emp_id
+        
+
+
+
+def send_credentials_email(user_obj):
+    subject = "[ Cambridge ] Your Credentials"
+    
+    html_message = f"""
+    <html>
+    <body>
+        <p>Hi {user_obj.full_name},</p>
+        <p>Welcome to our platform! We're thrilled to have you on board.</p>
+
+        <p><strong>Here are your login details:</strong></p>
+
+        <p><strong>URL:</strong> <a href="https://cambridgeqr.triazinesoft.com/login">https://cambridgeqr.triazinesoft.com/login</a></p>
+        <p><strong>Email:</strong> {user_obj.email}</p>
+        <p><strong>Password:</strong> {user_obj.raw_password}</p>
+
+        <p>Please log in and explore our services. If you have any questions, feel free to reach out.</p>
+        <p>Best regards,<br>The Team</p>
+    </body>
+    </html>
+    """
+
+    from_email = EMAIL_HOST_USER  # Replace with your actual email address or settings.EMAIL_HOST_USER
+    # MY_EMAIL = MY_EMAIL         # Replace with the admin email you want to receive a copy
+
+    recipient_list = [user_obj.email,"ashishk140@triazinesoft.com"]
+
+    email = EmailMultiAlternatives(subject, '', from_email, recipient_list)
+    email.attach_alternative(html_message, "text/html")
+    email.send()
