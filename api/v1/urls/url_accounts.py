@@ -8,6 +8,8 @@ router.register(r'customer_feedback', CustomerFeedbackViewSet, basename='custome
 # router.register(r'profile_update', UpdateProfileViewSet, basename='profile_update')
 router.register("membership_plans", MembershipPlanViewSet, basename="new_membership_plans")
 router.register("support_system", SupportSystemViewSet, basename="support_system")
+router.register("add_customer", CustomerCreateViewSet, basename="add_customer")
+router.register("referral_setting", ReferralSettingViewSet, basename="referral_setting")
 
 urlpatterns = [
     path('signup/', UserSignupView.as_view(), name='signup'),
@@ -18,7 +20,7 @@ urlpatterns = [
     # Outlet URLs
     # path('outlets/', OutletListCreateView.as_view(), name='outlet_list_create'),  # List and create outlets
     # path('outlets/<int:pk>/', OutletDetailView.as_view(), name='outlet_detail'),  # Retrieve, update, delete a specific outlet
-    path('add_customer/', CustomerCreateView.as_view(), name='add_customer'),  # API to add a single customer
+    # path('add_customer/', CustomerCreateView.as_view(), name='add_customer'),  # API to add a single customer
     path('update_delete_customer/<int:pk>/', CustomerCreateView.as_view(), name='customer_update_delete'),
     path('upload_customers/', CustomerUploadView.as_view(), name='upload_customers'),  # API to upload customers via Excel
     path('customers/', CustomerListView.as_view(), name='customer_list'),
@@ -33,5 +35,7 @@ urlpatterns = [
     path("cancel_auto_renew/", CancelAutoRenewView.as_view(), name="cancel_auto_renew"),
     path("razorpay_subscription_status/", MySubscriptionStatusView.as_view(), name="razorpay_subscription_status"),
     path("razorpay_payment_status_webhook/", RazorpayWebhookView.as_view(), name="razorpay_webhook"),
+
+    
     path('', include(router.urls)),  # Includes all ViewSet routes
 ]

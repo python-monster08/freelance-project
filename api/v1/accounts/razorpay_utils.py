@@ -5,7 +5,7 @@ import time
 from django.conf import settings
 import pandas as pd
 
-from api.v1.models import UserMaster
+from api.v1.models import Customer, UserMaster
 from msme_marketing_analytics.settings import EMAIL_HOST_USER
 from django.core.mail import EmailMultiAlternatives
 
@@ -287,13 +287,13 @@ def SearchUserRecord(dataframe, search):
 def generate_emp_id(role_id):
     S = 10  # Number of characters in the numeric part
     role_prefix_map = {
-        '1': 'AD',
-        '2': 'ME',
-        '3': 'EX',
+        '1': 'CM',
+        # '2': 'ME',
+        # '3': 'EX',
        
     }
 
-    prefix = role_prefix_map.get(str(role_id), "")  # Default to empty if role_id is invalid
+    prefix = role_prefix_map.get(str(1), "")  # Default to empty if role_id is invalid
 
     if not prefix:
         return None  # Return None for invalid roles
@@ -308,7 +308,15 @@ def generate_emp_id(role_id):
             return new_emp_id
         
 
+def generate_referral_code():
+    code_length = 10  # You can adjust this length
+    charset = string.ascii_uppercase + string.digits
 
+    while True:
+        referral_code = ''.join(random.choices(charset, k=code_length))
+        if not Customer.objects.filter(referral_code=referral_code).exists():
+            return referral_code
+        
 
 def send_credentials_email(user_obj):
     subject = "[ Cambridge ] Your Credentials"
@@ -316,14 +324,13 @@ def send_credentials_email(user_obj):
     html_message = f"""
     <html>
     <body>
-        <p>Hi {user_obj.full_name},</p>
+        <p>Hi {user_obj.first_name},</p>
         <p>Welcome to our platform! We're thrilled to have you on board.</p>
 
         <p><strong>Here are your login details:</strong></p>
 
-        <p><strong>URL:</strong> <a href="https://cambridgeqr.triazinesoft.com/login">https://cambridgeqr.triazinesoft.com/login</a></p>
+        <p><strong>URL:</strong> <a href="http://127.0.0.1:8080/api/v1/account/login/</a></p>
         <p><strong>Email:</strong> {user_obj.email}</p>
-        <p><strong>Password:</strong> {user_obj.raw_password}</p>
 
         <p>Please log in and explore our services. If you have any questions, feel free to reach out.</p>
         <p>Best regards,<br>The Team</p>

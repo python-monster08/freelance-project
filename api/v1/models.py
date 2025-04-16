@@ -4,14 +4,7 @@ import os
 from django.utils.timezone import now
 from django.utils.text import slugify
 
-# Create your models here.
-class CustomBaseModel(models.Model):
-    is_active = models.BooleanField(default=False)
-    is_deleted = models.BooleanField(default=False)
-    # created_by = models.ForeignKey("MSMEProfile", on_delete=models.DO_NOTHING, null=True, blank= True)
-    # updated_by = models.ForeignKey("MSMEProfile", on_delete=models.DO_NOTHING, null=True, blank= True)
-    created_on = models.DateTimeField(auto_now_add=True,null=True,blank=True)
-    updated_on = models.DateTimeField(auto_now=True,null=True,blank=True)
+
 
 class UserRole(models.Model):
     """Role model for defining user roles"""
@@ -26,31 +19,7 @@ class UserRole(models.Model):
         verbose_name = "User Role"
         verbose_name_plural = "User Roles"
 
-# class UserManager(BaseUserManager):
-#     """Custom manager for UserMaster model"""
 
-#     def create_user(self, email, username, phone_number, password=None, **extra_fields):
-#         """Create a normal user"""
-#         if not email:
-#             raise ValueError("Email is required")
-#         if not username:
-#             raise ValueError("Username is required")
-#         if not phone_number:
-#             raise ValueError("Phone number is required")
-
-#         email = self.normalize_email(email)
-#         user = self.model(email=email, username=username, phone_number=phone_number, **extra_fields)
-#         user.set_password(password)
-#         user.save(using=self._db)
-#         return user
-
-#     def create_superuser(self, email, username, phone_number, password=None, **extra_fields):
-#         """Create a superuser with admin privileges"""
-#         extra_fields.setdefault("is_active", True)
-#         extra_fields.setdefault("is_staff", True)
-#         extra_fields.setdefault("is_superuser", True)
-
-#         return self.create_user(email, username, phone_number, password, **extra_fields)
 
 class UserManager(BaseUserManager):
     """Custom manager for UserMaster model"""
@@ -87,12 +56,7 @@ class UserManager(BaseUserManager):
 
 
 class UserMaster(AbstractUser):
-    ROLE_CHOICES = [
-        (1, "Super Admin"),
-        (2, "Admin"),
-        (3, "Executive"),
-    ]
-
+   
     email = models.EmailField(unique=True)
     phone_number = models.CharField(max_length=15, unique=True)
     # role = models.CharField(max_length=20, choices=ROLE_CHOICES, default="executive")
@@ -443,22 +407,7 @@ class Subscription(models.Model):
 
 
 
-# class PaymentHistory(models.Model):
-#     msme = models.ForeignKey(MSMEProfile, on_delete=models.CASCADE)
-#     subscription = models.ForeignKey(Subscription, on_delete=models.CASCADE, related_name="payments")
-    
-#     razorpay_payment_id = models.CharField(max_length=255, unique=True)
-#     razorpay_order_id = models.CharField(max_length=255, unique=True)
-#     razorpay_signature = models.CharField(max_length=255, unique=True)
-    
-#     amount = models.DecimalField(max_digits=10, decimal_places=2)
-#     currency = models.CharField(max_length=10, default="INR")
-#     status = models.CharField(max_length=50, default="pending")  # ✅ pending, success, failed
 
-#     created_on = models.DateTimeField(auto_now_add=True)
-
-#     def __str__(self):
-#         return f"{self.msme.brand_name} - {self.razorpay_payment_id} ({self.status})"
 
 class PaymentHistory(models.Model):
     msme = models.ForeignKey(MSMEProfile, on_delete=models.CASCADE)
@@ -492,67 +441,7 @@ class RazorpayWebhookLog(models.Model):
         verbose_name = "Razorpay Webhook Log"
         verbose_name_plural = "Razorpay Webhook Logs"
  
- 
-class Customer(CustomBaseModel):
-    """ Model for storing customer details """
- 
-    GENDER_CHOICES = [
-        ('male', 'Male'),
-        ('female', 'Female'),
-        ('other', 'Other'),
-    ]
-    msme = models.ForeignKey(MSMEProfile, on_delete=models.CASCADE, related_name="customers", null=True, blank=True)
-    first_name = models.CharField(max_length=100)
-    last_name = models.CharField(max_length=100)
-    email = models.EmailField()
-    whatsapp_number = models.CharField(max_length=15)
-    gender = models.CharField(max_length=10, choices=GENDER_CHOICES, null=True, blank=True)
-    dob = models.DateField(null=True, blank=True)
-    anniversary_date = models.DateField(null=True, blank=True)
-    city = models.CharField(max_length=100)
-    created_by = models.ForeignKey("MSMEProfile", on_delete=models.DO_NOTHING, null=True, blank= True)
-    updated_by = models.ForeignKey("MSMEProfile", on_delete=models.DO_NOTHING, null=True, blank= True)
- 
-    def __str__(self):
-        return f"{self.first_name} {self.last_name}"
- 
-    class Meta:
-        db_table = "customer"
-        verbose_name = "Customer"
-        verbose_name_plural = "Customers"
- 
-class ReferralMaster(CustomBaseModel):
- 
-    customer = models.ForeignKey(Customer, related_name='referrals_made', on_delete=models.CASCADE)
-    referral_code = models.CharField(max_length=10,null=True, blank=True)
-    date_referred = models.DateTimeField(auto_now_add=True)
-   
- 
-    def __str__(self):
-        return f"Referral: {self.referrer} referred {self.referee} with code {self.referral_code}"
- 
-    class Meta:
-        db_table = "referral_master"
-        verbose_name = "Referral master"
-        verbose_name_plural = "Referral master"
- 
- 
-class RefereeMaster(CustomBaseModel):
-    customer = models.ForeignKey("Customer", related_name='referees_made', on_delete=models.CASCADE)
-    referral = models.ForeignKey('ReferralMaster', related_name='referrals_received', on_delete=models.CASCADE)
-    referral_code = models.CharField(max_length=10,null=True, blank=True)
-    date_referred = models.DateTimeField(auto_now_add=True)
-    
- 
-    def __str__(self):
-        return f"Referral: {self.referrer} referred {self.referee} with code {self.referral_code}"
- 
-    class Meta:
-        db_table = "referee_master"
-        verbose_name = "Referee Master"
-        verbose_name_plural = "Referee Master"
- 
- 
+
 class ReferralSetting(models.Model):
     OFFER_TYPES = (
         (1, "Discount in %"),
@@ -592,11 +481,12 @@ class ReferralSetting(models.Model):
     time_value = models.CharField(max_length=50, blank=True, null=True)
     referee_terms = models.JSONField(default=list, blank=True, null=True)
     channels = models.ManyToManyField("Channel")
-    created_on = models.DateTimeField(auto_now_add=True)
-    updated_on = models.DateTimeField(auto_now=True)
+    created_on = models.DateTimeField(auto_now_add=True, null=True, blank= True)
+    updated_on = models.DateTimeField(auto_now=True, null=True, blank= True)
     is_deleted = models.BooleanField(default=False)
     is_active = models.BooleanField(default=False)
-    created_by = models.ForeignKey(UserMaster, on_delete=models.SET_NULL, null=True, blank=True)
+    created_by = models.ForeignKey(UserMaster, on_delete=models.CASCADE, null=True, blank=True,related_name='created_referral_setting_user')
+    updated_by = models.ForeignKey("UserMaster", on_delete=models.CASCADE, null=True, blank= True,related_name='updated_referral_setting_user')
  
     def __str__(self):
         return f"{self.msme.brand_name} Referral Settings" if self.msme else "Unassigned Referral Setting"
@@ -605,3 +495,85 @@ class ReferralSetting(models.Model):
         db_table = "referral_setting"
         verbose_name = "Referral Setting"
         verbose_name_plural = "Referral Settings"
+ 
+class Customer(models.Model):
+    """ Model for storing customer details """
+ 
+    GENDER_CHOICES = [
+        ('male', 'Male'),
+        ('female', 'Female'),
+        ('other', 'Other'),
+    ]
+    msme = models.ForeignKey(MSMEProfile, on_delete=models.CASCADE, related_name="customers", null=True, blank=True)
+    referral_by = models.ForeignKey("Customer", on_delete=models.CASCADE, null=True, blank= True,related_name='referral_cutomer_user')
+    referral_code = models.CharField(max_length=10,null=True, blank=True)
+    first_name = models.CharField(max_length=100,null=True, blank=True)
+    last_name = models.CharField(max_length=100,null=True, blank=True)
+    email = models.EmailField(max_length=50,null=True, blank=True)
+    whatsapp_number = models.CharField(max_length=15)
+    gender = models.CharField(max_length=10, choices=GENDER_CHOICES, null=True, blank=True)
+    dob = models.DateField(null=True, blank=True)
+    anniversary_date = models.DateField(null=True, blank=True)
+    city = models.CharField(max_length=100,null=True, blank=True)
+    is_active = models.BooleanField(default=False)
+    is_deleted = models.BooleanField(default=False)
+
+    created_by = models.ForeignKey("UserMaster", on_delete=models.CASCADE, null=True, blank= True,related_name='created_cutomer_user')
+    updated_by = models.ForeignKey("UserMaster", on_delete=models.CASCADE, null=True, blank= True,related_name='updated_cutomer_user')
+    created_on = models.DateTimeField(auto_now_add=True,null=True,blank=True)
+    updated_on = models.DateTimeField(auto_now=True,null=True,blank=True)
+ 
+    def __str__(self):
+        return f"{self.first_name} {self.last_name}"
+ 
+    class Meta:
+        db_table = "customer"
+        verbose_name = "Customer"
+        verbose_name_plural = "Customers"
+ 
+class ReferralMaster(models.Model):
+ 
+    customer = models.ForeignKey(Customer, related_name='referrals_made', on_delete=models.CASCADE, null=True, blank= True)
+    referral_setting = models.ForeignKey(ReferralSetting, related_name='referral_setting_made', on_delete=models.CASCADE, null=True, blank= True)
+    referral_code = models.CharField(max_length=10,null=True, blank=True)
+    date_referred = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=False)
+    is_deleted = models.BooleanField(default=False)
+    created_by = models.ForeignKey("UserMaster", on_delete=models.CASCADE, null=True, blank= True,related_name='created_referral_user')
+    updated_by = models.ForeignKey("UserMaster", on_delete=models.CASCADE, null=True, blank= True,related_name='updated_referral_user')
+    created_on = models.DateTimeField(auto_now_add=True,null=True,blank=True)
+    updated_on = models.DateTimeField(auto_now=True,null=True,blank=True)
+   
+ 
+    def __str__(self):
+        return f"Referral: {self.customer.first_name} referred {self.id} with code {self.referral_code}"
+ 
+    class Meta:
+        db_table = "referral_master"
+        verbose_name = "Referral master"
+        verbose_name_plural = "Referral master"
+ 
+ 
+class RefereeMaster(models.Model):
+    customer = models.ForeignKey("Customer", related_name='referees_made', on_delete=models.CASCADE, null=True, blank= True)
+    referral = models.ForeignKey('ReferralMaster', related_name='referrals_received', on_delete=models.CASCADE, null=True, blank= True)
+    referral_setting = models.ForeignKey(ReferralSetting, related_name='referee_setting_made', on_delete=models.CASCADE, null=True, blank= True)
+    referral_code = models.CharField(max_length=10,null=True, blank=True)
+    date_referred = models.DateTimeField(auto_now_add=True,null=True, blank=True)
+    is_active = models.BooleanField(default=False)
+    is_deleted = models.BooleanField(default=False)
+    created_by = models.ForeignKey("UserMaster", on_delete=models.CASCADE, null=True, blank= True,related_name='created_referee_user')
+    updated_by = models.ForeignKey("UserMaster", on_delete=models.CASCADE, null=True, blank= True,related_name='updated_referee_user')
+    created_on = models.DateTimeField(auto_now_add=True,null=True,blank=True)
+    updated_on = models.DateTimeField(auto_now=True,null=True,blank=True)
+    
+ 
+    def __str__(self):
+        return f"Referral: {self.referral.id} referred {self.customer.id} with code {self.referral_code}"
+ 
+    class Meta:
+        db_table = "referee_master"
+        verbose_name = "Referee Master"
+        verbose_name_plural = "Referee Master"
+ 
+ 

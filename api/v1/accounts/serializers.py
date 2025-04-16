@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from api.v1.accounts.razorpay_utils import generate_emp_id
+from api.v1.accounts.razorpay_utils import generate_emp_id, generate_referral_code, send_credentials_email
 from api.v1.models import *
 from django.contrib.auth import get_user_model
 from django.utils.translation import gettext_lazy as _
@@ -363,44 +363,6 @@ class MembershipPlanCreateUpdateSerializer(MembershipPlanListSerializer):
         return instance
     
     
-# class SupportSystemGetSerializer(serializers.ModelSerializer):
-#     """Serializer for retrieving SupportSystem records"""
-#     plan_name = serializers.CharField(source="plan.name", read_only=True)  # Fetching related plan name
-
-#     plan_support = serializers.SerializerMethodField()
-
-#     class Meta:
-#         model = SupportSystem
-#         fields = ["id", "plan", "plan_name", "plan_support"]
-
-#     def get_plan_support(self, instance):
-#         """Returns structured plan support details"""
-#         return {
-#             "support": instance.support,
-#             "training": instance.training,
-#             "staff_re_training": instance.staff_re_training,
-#             "dedicated_poc": instance.dedicated_poc
-#         }
-
-
-# class SupportSystemCreateUpdateSerializer(serializers.ModelSerializer):
-#     """Serializer for creating/updating SupportSystem records"""
-
-#     class Meta:
-#         model = SupportSystem
-#         fields = ["plan", "support", "training", "staff_re_training", "dedicated_poc"]
-
-#     def validate_plan(self, value):
-#         """Ensure the plan exists and is not deleted"""
-#         if not MembershipPlan.objects.filter(id=value.id, is_deleted=False).exists():
-#             raise serializers.ValidationError("Invalid or deleted Plan ID")
-#         return value
-
-#     def to_representation(self, instance):
-#         """Ensure the response includes plan_name"""
-#         data = super().to_representation(instance)
-#         data["plan_name"] = instance.plan.name if instance.plan else None  # Handle cases where plan might be null
-#         return data
 
 
 
@@ -492,135 +454,275 @@ class PaymentHistorySerializer(serializers.ModelSerializer):
 
 
 
+email_regex = r"(^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$)"
 
-##########################################
-
-class SubAdminRegisterSerializer(serializers.Serializer):
-    assigned_by = serializers.CharField(max_length=60, required=False,allow_null=True)
-    name = serializers.CharField(max_length=20, required=True)
-    email = serializers.EmailField(max_length=60, required=True)
-    # address = serializers.CharField(max_length=60, required=True)
-    # access = serializers.ListSerializer(child=RoleAccessWithSubModule())
-    class Meta:
-        model = UserMaster
-        fields = ['assigned_by','name','email','role','access']
-
+class CustomerRegisterSerializer(serializers.Serializer):
+    first_name = serializers.CharField(max_length=20, required=True, allow_null=True)
+    last_name = serializers.CharField(max_length=20, required=False, allow_null=True)
+    email = serializers.EmailField(max_length=60, required=False, allow_null=True)
+    whatsapp_number = serializers.CharField(max_length=60, required=True)
+    gender = serializers.CharField(max_length=20, required=False, allow_null=True)
+    dob = serializers.CharField(max_length=20, required=False, allow_null=True)
+    anniversary_date = serializers.CharField(max_length=20, required=False, allow_null=True)
+    city = serializers.CharField(max_length=50, required=False, allow_null=True)
+    referral_code = serializers.CharField(max_length=50, required=False, allow_null=True)
+    referral_setting = serializers.CharField(max_length=50, required=False, allow_null=True)
+    
 
     def validate(self, attrs):
-        request=self.context.get('request')
-        assigned_by = attrs.get('assigned_by')
-        role_access = attrs.get('access')
-        name=attrs.get('name')
-        email=attrs.get('email')
+        request = self.context.get('request')
+        first_name = attrs.get('first_name')
+        last_name = attrs.get('last_name')
+        email = attrs.get('email')
+        whatsapp_number = attrs.get('whatsapp_number')
+        referral_setting = attrs.get('referral_setting')
 
-        role = request.user.user_role.id
+        if not re.fullmatch(r'^[A-Za-z\s]+$', first_name or ''):
+            raise serializers.ValidationError({'error': "First name must contain only alphabets."})
 
-        if not role_access:
-            raise serializers.ValidationError({'error':'role access are mandatory fields.'})
+        if last_name and not re.fullmatch(r'^[A-Za-z\s]+$', last_name):
+            raise serializers.ValidationError({'error': "Last name must contain only alphabets."})
 
-        if role not in [1,2]:
-            raise serializers.ValidationError({"error": "Registration is only allowed for admin."})
+        if email:
+            if Customer.objects.filter(email=email).exists():
+                raise serializers.ValidationError({'error': 'User with this email already exists.'})
+            if not re.fullmatch(email_regex, email):
+                raise serializers.ValidationError({'error': 'Please enter a valid email.'})
 
-        with transaction.atomic():
+        if whatsapp_number:
+            if Customer.objects.filter(whatsapp_number=whatsapp_number).exists():
+                raise serializers.ValidationError({'error': 'User with this phone number already exists.'})
+        else:
+            raise serializers.ValidationError({'error': 'Please provide mobile number.'})
         
-            if not re.fullmatch(r'^[A-Za-z\s]+$', name):
-                raise serializers.ValidationError({'error':"Name must contain only alphabets."})
-            
-            if email:
-                if UserMaster.objects.filter(email=email).exists():
-                    raise serializers.ValidationError({'error':'User with this email already exists.'})
-                if not re.fullmatch(email_regex, email):
-                    raise serializers.ValidationError({'error':'Please enter a valid email.'})
-            else:
-                raise serializers.ValidationError({'error':'Please provide email.'})
-        
+        if not referral_setting:
+            raise serializers.ValidationError({'error': 'Please provide referral setting id.'})
+
         return attrs
 
     def create(self, validated_data):
         with transaction.atomic():
-            request=self.context.get('request')
-            role_access = validated_data.get('access')
-            assigned_by = validated_data.get('assigned_by')
-            role_data=request.user.role.id
-            user_code=generate_emp_id(role_data)
-            user = UserMaster(
-                full_name=validated_data['name'],
-                # phone_number=validated_data['phone_number'],
-                email=validated_data['email'],
-                username=validated_data['email'],
-                # address=validated_data['address'],
-                user_role_id=2,
-                user_code=user_code,
-                is_active=True,
-                created_by_id=int(request.user.id),
-            )
-            user.save()
-            user_id = user.id
+            request = self.context.get('request')
+            user_id = int(request.user.id)
+            referral_setting = validated_data.get('referral_setting')
+            referral_code_input = validated_data.get('referral_code')
+            generated_referral_code = generate_referral_code()
 
-        
-            ## Send welcome email
-            send_credentials_email(user)
+            # Prepare customer fields
+            customer_fields = {
+                'first_name': validated_data.get('first_name'),
+                'last_name': validated_data.get('last_name'),
+                'whatsapp_number': validated_data.get('whatsapp_number'),
+                'email': validated_data.get('email'),
+                'gender': validated_data.get('gender'),
+                'dob': validated_data.get('dob'),
+                'anniversary_date': validated_data.get('anniversary_date'),
+                'city': validated_data.get('city'),
+                'referral_code': generated_referral_code,
+                'is_active': True,
+                'msme_id': user_id,
+                'created_by_id': user_id,
+            }
 
-        return user
+            if not referral_code_input:
+                # No referral - create customer and referral master
+                customer_obj = Customer.objects.create(**customer_fields)
 
-class UpdateSubAdminSerializer(serializers.Serializer):
-    assigned_by = serializers.CharField(max_length=60, required=False,allow_null=True)
-    name = serializers.CharField(required = False,error_messages={'invalid': 'Please enter a valid name.'})
-    role_id = serializers.CharField(required = False,allow_null=True,error_messages={'invalid': 'Please enter a valid role.'})
+                ReferralMaster.objects.create(
+                    referral_code=generated_referral_code,
+                    customer=customer_obj,
+                    created_by_id=user_id,
+                    referral_setting_id=int(referral_setting) if referral_setting else None,
+                )
+
+            else:
+                # Referral code provided - validate it
+                referral_user = Customer.objects.filter(
+                    referral_code=referral_code_input,
+                    is_active=True,
+                    is_deleted=False
+                ).last()
+
+                if not referral_user:
+                    raise serializers.ValidationError({'error': 'Invalid referral code.'})
+
+                customer_fields['referral_by'] = referral_user
+                customer_obj = Customer.objects.create(**customer_fields)
+
+                # Fetch the referral master instance related to the referral user
+                referral_master_instance = ReferralMaster.objects.filter(
+                    customer=referral_user
+                ).last()
+
+                if not referral_master_instance:
+                    raise serializers.ValidationError({'error': 'Referral master not found for the provided code.'})
+
+                # Create referee master record
+                RefereeMaster.objects.create(
+                    referral=referral_master_instance,  # This should be a ReferralMaster instance
+                    customer=customer_obj,
+                    referral_code=generated_referral_code,
+                    created_by_id=user_id,
+                    referral_setting_id=int(referral_setting) if referral_setting else None,
+                )
+
+            # Send welcome email
+            send_credentials_email(customer_obj)
+
+            return customer_obj
+
+
+
+class UpdateCustomerSerializer(serializers.Serializer):
+    first_name = serializers.CharField(max_length=20, required=True,allow_null=True)
+    last_name = serializers.CharField(max_length=20, required=False,allow_null=True)
+    email = serializers.EmailField(max_length=60, required=False,allow_null=True)
+    whatsapp_number = serializers.CharField(max_length=60, required=True)
+    gender = serializers.CharField(max_length=20, required=False,allow_null=True)
+    dob = serializers.CharField(max_length=20, required=False,allow_null=True)
+    anniversary_date = serializers.CharField(max_length=20, required=False,allow_null=True)
+    city = serializers.CharField(max_length=50, required=False,allow_null=True)
+
     class Meta:
-        
-        model = UserMaster
-        fields = ['id','name','role_id','access','assigned_by']
+        model = Customer
 
     def validate(self,attrs):
         with transaction.atomic():
             request=self.context.get('request')
             user = self.context.get('user')
-            userMaster = self.instance
-            name = attrs.get('name')
-            role_id = attrs.get('role_id')
-            role_access = attrs.get('access')
-            assigned_by = attrs.get('assigned_by')
+            customer_obj = self.instance
+            first_name = attrs.get('first_name')
+            last_name = attrs.get('last_name')
+            email=attrs.get('email')
+            whatsapp_number=attrs.get('whatsapp_number')
+            gender = attrs.get('gender')
+            dob = attrs.get('dob')
+            anniversary_date=attrs.get('anniversary_date')
+            city=attrs.get('city')
         
             role = request.user.user_role.id
-            if not (int(role) in [1,2]):    
+            if not (int(role) in [1,2,3]):    
                 raise serializers.ValidationError({'error':'Please provide valid role id.'})
             
-            if not re.fullmatch(r'^[A-Za-z\s]+$', name):
+            if not re.fullmatch(r'^[A-Za-z\s]+$', first_name):
+                raise serializers.ValidationError({'error':"Name must contain only alphabets."})
+            if not re.fullmatch(r'^[A-Za-z\s]+$', last_name):
                 raise serializers.ValidationError({'error':"Name must contain only alphabets."})
             
             
-            userMaster.full_name = name if name else userMaster.full_name
-            userMaster.user_role_id=int(role_id) if role_id else userMaster.user_role_id
-            userMaster.updated_by_id = int(request.user.id)       
-            userMaster.assigned_by_id=int(request.user.id)
-            # userMaster.created_on=datetime.datetime.now()
+            customer_obj.first_name = first_name if first_name else customer_obj.first_name
+            customer_obj.last_name = last_name if last_name else customer_obj.last_name
+            customer_obj.email = email if email else customer_obj.email
+            customer_obj.whatsapp_number = whatsapp_number if whatsapp_number else customer_obj.whatsapp_number
+            customer_obj.gender = gender if gender else customer_obj.gender
+            customer_obj.dob = dob if dob else customer_obj.dob
+            customer_obj.anniversary_date = anniversary_date if anniversary_date else customer_obj.anniversary_date
+            customer_obj.city = city if city else customer_obj.city
+            customer_obj.updated_by_id = int(request.user.id)       
+            customer_obj.msme_id=int(request.user.id)
 
-            userMaster.save()
-
-            
-
+            customer_obj.save()
             
             return attrs
 
-class GetSubAdminSerializer(serializers.ModelSerializer):
+class GetCustomerSerializer(serializers.ModelSerializer):
     class Meta:
-        model = UserMaster
-        fields = ['id', 'full_name', 'email', 'phone_number', 'address', 'description', 'created_by','assigned_by',]
+        model = Customer
+        fields = ['id', 'first_name','last_name', 'email', 'whatsapp_number', 'gender', 'dob','city', 'created_by','msme',]
     
 
     def to_representation(self, instance):
         request = self.context.get('request')
         data = super().to_representation(instance)
-        data['name'] = data.pop('full_name') if instance.full_name else ""
+        data['first_name'] = data.pop('first_name') if instance.first_name else ""
+        data['last_name'] = data.pop('last_name') if instance.last_name else ""
         data['email'] = data.pop('email') if instance.email else ""
-        data['phone_number'] = data.pop('phone_number') if instance.phone_number else ""
-        data['address'] = data.pop('address') if instance.address else ""
-        data['image'] = data.pop('profile_picture') if instance.profile_picture else ""
+        data['whatsapp_number'] = data.pop('whatsapp_number') if instance.whatsapp_number else ""
+        data['gender'] = data.pop('gender') if instance.gender else ""
         data['created_by'] = data.pop('created_by') if instance.created_by else None
-        data['created_by_name'] = instance.created_by.full_name if instance.created_by else ""
-        data['assigned_by'] = data.pop('assigned_by') if instance.assigned_by else None
-        data['assigned_by_name'] = instance.assigned_by.full_name if instance.assigned_by else ""
-        data['description'] = data.pop('description') if instance.description else ""
+        data['created_by_name'] = instance.created_by.first_name if instance.created_by else ""
+        data['anniversary_date'] = data.pop('anniversary_date') if instance.anniversary_date else ""
+        data['city'] = instance.city if instance.city else ""
+        data['dob'] = data.pop('dob') if instance.dob else ""
+        data['msme'] = data.pop('msme') if instance.msme else None
+        data['msme_name'] = instance.msme.brand_name if instance.msme else ""
 
         return data
+
+
+
+
+
+class ReferralSettingSerializer(serializers.ModelSerializer):
+    referral_terms = serializers.ListField(child=serializers.CharField(), required=False)
+    referee_terms = serializers.ListField(child=serializers.CharField(), required=False)
+    channels = serializers.PrimaryKeyRelatedField(queryset=Channel.objects.all(), many=True)
+    
+    is_active = serializers.BooleanField(required=False)
+ 
+    # These are read-only computed fields
+    msme_id = serializers.SerializerMethodField()
+    msme_name = serializers.SerializerMethodField()
+ 
+    class Meta:
+        model = ReferralSetting
+        fields = [
+            "id", "msme_id", "msme_name", "created_by",
+ 
+            # Referral Details
+            "selected_offer", "selected_offer_text",
+            "reward_expire_type", "reminder_type", "reminder_value",
+            "contact_type", "contact_value", "referral_terms",
+ 
+            # Referee Details
+            "referrer_discount", "min_purchase", "post_purchase",
+            "time_unit", "time_value", "referee_terms",
+ 
+            # Channels
+            "channels",
+ 
+            "is_active",
+            "created_on"
+        ]
+        read_only_fields = ["id", "created_on", "msme_id", "msme_name", "created_by"]
+ 
+    def get_msme_id(self, obj):
+        return obj.msme.id if obj.msme else None
+ 
+    def get_msme_name(self, obj):
+        return obj.msme.brand_name if obj.msme else "No MSME"
+ 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+ 
+        response = {
+            "referral_details": {
+                "selected_offer": data.pop("selected_offer"),
+                "selected_offer_text": data.pop("selected_offer_text"),
+                "reward_expire_type": data.pop("reward_expire_type"),
+                "reminder_type": data.pop("reminder_type"),
+                "reminder_type_text": data.pop("reminder_value"),
+                "contact_type": data.pop("contact_type"),
+                "contact_type_text": data.pop("contact_value"),
+                "terms": data.pop("referral_terms", []),
+            },
+            "referee_details": {
+                "referrer_discount": data.pop("referrer_discount"),
+                "min_purchase": data.pop("min_purchase"),
+                "post_purchase": data.pop("post_purchase"),
+                "time_unit": data.pop("time_unit"),
+                "time_value": data.pop("time_value"),
+                "terms": data.pop("referee_terms", []),
+            },
+            "channels": data.pop("channels"),
+            "id": data.pop("id"),
+            "msme_id": data.pop("msme_id"),
+            "msme_name": data.pop("msme_name"),
+            "created_by": data.pop("created_by"),
+            "created_on": data.pop("created_on"),
+        }
+ 
+        return response
+ 
+ 
+ 

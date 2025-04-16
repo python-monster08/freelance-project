@@ -216,3 +216,55 @@ class RazorpayWebhookLogAdmin(admin.ModelAdmin):
 
     def has_change_permission(self, request, obj=None):
         return False  # disable editing
+
+@admin.register(ReferralMaster)
+class ReferralMasterAdmin(admin.ModelAdmin):
+    list_display = ('id', 'referral_code', 'customer')
+    search_fields = ('referral_code', 'id')
+    list_filter = ('referral_code', 'id')
+    ordering = ('-created_on',)
+
+    def has_add_permission(self, request):
+        return False  # disable manual adding
+
+    def has_change_permission(self, request, obj=None):
+        return False  # disable editing
+@admin.register(RefereeMaster)
+class RefereeMasterAdmin(admin.ModelAdmin):
+    list_display = ('id', 'referral_code', 'customer')
+    search_fields = ('referral_code', 'id')
+    list_filter = ('referral_code', 'id')
+    ordering = ('-created_on',)
+
+    def has_add_permission(self, request):
+        return False  # disable manual adding
+
+    def has_change_permission(self, request, obj=None):
+        return False  # disable editing
+    
+@admin.register(ReferralSetting)
+class ReferralSettingAdmin(admin.ModelAdmin):
+    list_display = (
+        "msme",
+        "selected_offer_text",       # Show discount/offer name
+        "referrer_discount",         # Bonus for referrer
+        "post_purchase",             # After how many purchases
+        "time_value",                # Validity period
+        "get_time_unit_display",     # Human-readable time unit
+        "created_on"
+    )
+    search_fields = ("msme__brand_name", "selected_offer_text")
+    list_filter = ("created_on", "selected_offer", "time_unit")
+    ordering = ("-created_on",)
+ 
+    def get_time_unit_display(self, obj):
+        return obj.get_time_unit_display()
+    get_time_unit_display.short_description = "Time Unit"
+ 
+    def save_model(self, request, obj, form, change):
+        if not obj.msme:
+            try:
+                obj.msme = request.user.profile
+            except Exception:
+                pass
+        super().save_model(request, obj, form, change)

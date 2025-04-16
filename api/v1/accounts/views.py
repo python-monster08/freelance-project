@@ -15,6 +15,7 @@ from msme_marketing_analytics.response import http_200_response
 from msme_marketing_analytics.response import http_200_response_pagination
 from msme_marketing_analytics.response import http_500_response
 from msme_marketing_analytics.response import http_400_response
+from msme_marketing_analytics.response import http_200_response_pagination_false
 from .serializers import *
 import requests
 from django.contrib.auth.hashers import check_password
@@ -1605,50 +1606,47 @@ class RazorpayWebhookView(APIView):
 
 
 
-#### used model viewset
-
-
-### Sub admin all api
-class SubAdminRegisterView(ModelViewSet):
+###  Add customer , mapping referral and referee crud
+class CustomerCreateViewSet(ModelViewSet):
     permission_classes = (IsAuthenticated,) 
     http_method_names = ['get', 'post', 'put', 'delete']
-    serializer_class = SubAdminRegisterSerializer
+    serializer_class = CustomerRegisterSerializer
     pagination_class = MSMEDefaultPaginationClass
     queryset = UserMaster.objects.all()
     # parser_classes = (FormParser, MultiPartParser)
  
     def get_serializer_class(self):
         if self.action == "create":
-            return SubAdminRegisterSerializer
+            return CustomerRegisterSerializer
         elif self.action == "retrieve":
-            return GetSubAdminSerializer
+            return GetCustomerSerializer
         elif self.action == "update":
-            return UpdateSubAdminSerializer
+            return UpdateCustomerSerializer
         else:
             return self.serializer_class
 
 
 
     def create(self, request, *args, **kwargs):
-        try:
+        # try:
             if not request.auth:
                 raise AuthenticationFailed("Invalid or missing access token.")
 
-            if request.user.user_role_id in [1,2,]:
-                serializer = self.get_serializer(data=request.data,context={"request":request,})
-                serializer.context['request'] = request  
-                if serializer.is_valid():
-                    serializer.save()  
-                    return http_201_response(message="User created successfully")
-                else:
-                    if list(serializer.errors.keys())[0] != "error":
-                        return http_400_response(message=f"{list(serializer.errors.keys())[0]} : {serializer.errors[list(serializer.errors.keys())[0]][0]}")
-                    else:
-                        return http_400_response(message=serializer.errors[list(serializer.errors.keys())[0]][0])
+            # if request.user.user_role_id in [1,2,]:
+            serializer = self.get_serializer(data=request.data,context={"request":request,})
+            serializer.context['request'] = request  
+            if serializer.is_valid():
+                serializer.save()  
+                return http_201_response(message="User created successfully")
             else:
-                return http_400_response(message=UNAUTHORIZED)
-        except Exception as e:
-            return http_500_response(error=str(e))
+                if list(serializer.errors.keys())[0] != "error":
+                    return http_400_response(message=f"{list(serializer.errors.keys())[0]} : {serializer.errors[list(serializer.errors.keys())[0]][0]}")
+                else:
+                    return http_400_response(message=serializer.errors[list(serializer.errors.keys())[0]][0])
+            # else:
+            #     return http_400_response(message=UNAUTHORIZED)
+        # except Exception as e:
+        #     return http_500_response(error=str(e))
         
 
     
@@ -1664,28 +1662,23 @@ class SubAdminRegisterView(ModelViewSet):
             role_id = self.request.query_params.get('role_id')
             status = self.request.query_params.get('status')
             order_by = self.request.query_params.get('order_by')
-
-            if role_id:
-                queryset = UserMaster.objects.filter(user_role_id=role_id, is_deleted=False, is_active=True)
-            else:
-                queryset = UserMaster.objects.filter(user_role_id__in=[2,], is_deleted=False, is_active=True, created_by_id=request.user.id).order_by('-created_on')
+            # role_id=request.user.id
+            # print(role_id,'1111111111111111111111111111')
+            # if role_id==1:
+            queryset = Customer.objects.filter(is_deleted=False, is_active=True)
+            # else:
+            #     queryset = Customer.objects.filter(user_role_id__in=[2,], is_deleted=False, is_active=True, created_by_id=request.user.id).order_by('-created_on')
 
             queryset = queryset.values(
-                'id', 'employee_id', 'full_name', 'email', 'profile_picture', 'phone_number',
-                'user_role_id', 'user_role__role', 'address', 'description', 'is_active',
-                'created_on', 'assigned_by', 'assigned_by__full_name', 'created_by', 'created_by__full_name'
+                'id' ,'first_name','last_name', 'email', 'whatsapp_number',
+                'gender', 'dob', 'city','is_active',
+                'created_on', 'msme_id', 'msme__brand_name', 'created_by', 'created_by__first_name'
             ).order_by('-created_on')
 
             dataframe_df = pd.DataFrame((queryset))
 
             if not dataframe_df.empty:
-                for index, row in dataframe_df.iterrows():
-                    if dataframe_df.at[index, "profile_picture"]:
-                        dataframe_df.at[index, "image"] = str(request.build_absolute_uri('/'))[:-1] + "/media/" + str(dataframe_df.at[index, "profile_picture"])
-                    else:
-                        dataframe_df.at[index, "image"] = ""
 
-                dataframe_df['employee_id'] = dataframe_df['employee_id'].fillna("").astype(str)
 
                 if 'id' not in dataframe_df.columns:
                     return http_200_response(message=NOT_FOUND, data=[])
@@ -1693,16 +1686,7 @@ class SubAdminRegisterView(ModelViewSet):
                 if dataframe_df.empty:
                     return http_200_response(message=NOT_FOUND, data=[])
 
-                dataframe_df.rename(columns={
-                    'role__role': 'role_name',
-                    'bio': 'description',
-                    'full_name': 'name',
-                    'state__name': 'state_name',
-                    'city__name': 'city_name',
-                    'phone_number': 'phone_number',
-                    'assigned_by__full_name': 'assigned_by_name',
-                    'created_by__full_name': 'created_by_name'
-                }, inplace=True)
+                dataframe_df.rename(columns={'msme__brand_name': 'msme_brand_name','created_by__first_name': 'created_by_name'}, inplace=True)
 
                 if search:
                     search = search.strip()
@@ -1710,7 +1694,7 @@ class SubAdminRegisterView(ModelViewSet):
                     dataframe_df = SearchUserRecord(dataframe_df, search)
 
                 # Apply ordering if valid order_by is given
-                if order_by in ['name', 'email']:
+                if order_by in ['first_name', 'email','id']:
                     dataframe_df.sort_values(by=[order_by], ascending=True, inplace=True)
 
                 if 'created_on' in dataframe_df.columns:
@@ -1718,7 +1702,6 @@ class SubAdminRegisterView(ModelViewSet):
                 else:
                     dataframe_df['created_on'] = ""
 
-                dataframe_df.drop(columns=['profile_picture'], inplace=True)
                 dataframe_df = dataframe_df.fillna("")
                 json_list = dataframe_df.to_json(orient='records')
                 json_list = json.loads(json_list)
@@ -1728,35 +1711,29 @@ class SubAdminRegisterView(ModelViewSet):
                 result_page = paginator.paginate_queryset(json_list, request)
                 return paginator.get_paginated_response(result_page)
             else:
-                return http_200_response_pagination(message=NOT_FOUND)
+                return http_200_response_pagination_false(message=NOT_FOUND)
 
         except Exception as e:
             logException(e)
             return http_500_response(error=str(e))
 
-    # def retrieve(self, request, pk):
-    #     queryset = UserMaster.objects.filter(id=pk).all().values('id',"full_name",'email','phone_number','user_role','country','is_active')
-    #     if queryset:
-    #         subadmin_list_dataframe = pd.DataFrame(queryset)
-    #         subadmin_list_json = subadmin_list_dataframe.to_json(orient='records')
-    #         subadmin_list_json = json.loads(subadmin_list_json)
-            
-    #         sub_admin_roles = MapRolesAccessToSubAdmin.objects.filter(user_id=pk,).all().values('id','access_id','access__access')
-    #         sub_admin_roles_dataframe = pd.DataFrame(sub_admin_roles)
-    #         sub_admin_roles_dataframe = sub_admin_roles_dataframe.rename(columns={'access__access':'access'}) 
-    #         sub_admin_roles_json = sub_admin_roles_dataframe.to_json(orient='records')
-    #         sub_admin_roles_json = json.loads(sub_admin_roles_json)
+    def retrieve(self, request, pk=None):
+        try:
+            user_obj  = Customer.objects.filter(id=pk).last()
 
-    #         if sub_admin_roles:
-    #             subadmin_list_json[0]['access'] = sub_admin_roles_json
-    #         else:
-    #             subadmin_list_json[0]['access'] = []
-    #         return http_200_response(message=FOUND,data=subadmin_list_json)  
-    #     return http_200_response(message=NOT_FOUND)
+            outlet_data = GetCustomerSerializer(user_obj,context={'user':request.user,'request':request,'user_obj':user_obj}).data
+            if outlet_data:
+                return http_200_response(message=FOUND,data=outlet_data)
+            else:
+                return http_200_response(message=NOT_FOUND)
+        except Exception as e:
+            logException(e)
+            return http_500_response(error=str(e))
+        
 
     def destroy(self, request, pk=None):
         if pk:
-            user = UserMaster.objects.filter(id=pk, is_deleted=False).last()
+            user = Customer.objects.filter(id=pk, is_deleted=False).last()
             if user:
                 user.is_deleted=True
                 user.save()
@@ -1769,10 +1746,10 @@ class SubAdminRegisterView(ModelViewSet):
 
     def update(self, request, pk ,*args, **kwargs):
         try:
-            instance = UserMaster.objects.filter(id=int(pk)).last()
+            instance = Customer.objects.filter(id=int(pk)).last()
             if not instance:
                 return http_400_response(message=NOT_FOUND)
-            serialized_data = 'UpdateSubAdminSerializer'(instance,request.data,context={'user':request.user,'request':request})
+            serialized_data = 'UpdateCustomerSerializer'(instance,request.data,context={'user':request.user,'request':request})
             if serialized_data.is_valid():
                 return http_200_response(message=USER_UPDATE)
             else:
@@ -1784,3 +1761,128 @@ class SubAdminRegisterView(ModelViewSet):
             logException(e)
             return http_500_response(error=str(e))
 
+
+### referrl setiing crud
+class ReferralSettingViewSet(ModelViewSet):
+    serializer_class = ReferralSettingSerializer
+    permission_classes = [IsAuthenticated]
+ 
+    def get_queryset(self):
+        msme = MSMEProfile.objects.get(user=self.request.user)
+        return ReferralSetting.objects.filter(msme=msme, is_deleted=False)
+ 
+    def create(self, request, *args, **kwargs):
+        try:
+            msme = MSMEProfile.objects.get(user=request.user)
+ 
+            if ReferralSetting.objects.filter(msme=msme, is_deleted=False).exists():
+                return Response({
+                    "status": False,
+                    "message": "Referral settings already exist for this MSME."
+                }, status=status.HTTP_400_BAD_REQUEST)
+ 
+            referral_data = request.data.get("referral_details", {})
+            referee_data = request.data.get("referee_details", {})
+            channels = request.data.get("channels", [])
+ 
+            data = {
+                "created_by": msme.user.id,
+                "selected_offer": referral_data.get("selected_offer"),
+                "selected_offer_text": referral_data.get("selected_offer_text"),
+                "reward_expire_type": referral_data.get("reward_expire_type"),
+                "reminder_type": referral_data.get("reminder_type"),
+                "reminder_value": referral_data.get("reminder_type_text"),
+                "contact_type": referral_data.get("contact_type"),
+                "contact_value": referral_data.get("contact_type_text"),
+                "referral_terms": referral_data.get("terms", []),
+                "referrer_discount": referee_data.get("referrer_discount"),
+                "min_purchase": referee_data.get("min_purchase"),
+                "post_purchase": referee_data.get("post_purchase"),
+                "time_unit": referee_data.get("time_unit"),
+                "time_value": referee_data.get("time_value"),
+                "referee_terms": referee_data.get("terms", []),
+                "channels": channels,
+                "is_active": True
+            }
+ 
+            serializer = self.get_serializer(data=data)
+            serializer.is_valid(raise_exception=True)
+            instance = serializer.save(msme=msme, created_by=msme.user)
+ 
+            return Response({
+                "status": True,
+                "message": "Referral setting created successfully",
+                "data": self.get_serializer(instance).data
+            }, status=status.HTTP_201_CREATED)
+ 
+        except MSMEProfile.DoesNotExist:
+            return Response({
+                "status": False,
+                "message": "MSME profile not found"
+            }, status=status.HTTP_404_NOT_FOUND)
+ 
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({
+            "status": True,
+            "message": "Your referral settings fetched successfully",
+            "data": serializer.data
+        })
+ 
+    def retrieve(self, request, pk=None):
+        queryset = self.get_queryset()
+        instance = get_object_or_404(queryset, pk=pk)
+        serializer = self.get_serializer(instance)
+        return Response({
+            "status": True,
+            "message": "Your referral setting fetched successfully",
+            "data": serializer.data
+        })
+ 
+    def update(self, request, pk=None):
+        instance = get_object_or_404(self.get_queryset(), pk=pk)
+ 
+        referral_data = request.data.get("referral_details", {})
+        referee_data = request.data.get("referee_details", {})
+        channels = request.data.get("channels", [])
+ 
+        updated_data = {
+            "selected_offer": referral_data.get("selected_offer"),
+            "selected_offer_text": referral_data.get("selected_offer_text"),
+            "reward_expire_type": referral_data.get("reward_expire_type"),
+            "reminder_type": referral_data.get("reminder_type"),
+            "reminder_value": referral_data.get("reminder_type_text"),
+            "contact_type": referral_data.get("contact_type"),
+            "contact_value": referral_data.get("contact_type_text"),
+            "referral_terms": referral_data.get("terms", []),
+            "referrer_discount": referee_data.get("referrer_discount"),
+            "min_purchase": referee_data.get("min_purchase"),
+            "post_purchase": referee_data.get("post_purchase"),
+            "time_unit": referee_data.get("time_unit"),
+            "time_value": referee_data.get("time_value"),
+            "referee_terms": referee_data.get("terms", []),
+            "channels": channels,
+        }
+ 
+        serializer = self.get_serializer(instance, data=updated_data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+ 
+        return Response({
+            "status": True,
+            "message": "Referral setting updated successfully",
+            "data": serializer.data
+        })
+ 
+    def destroy(self, request, pk=None):
+        instance = get_object_or_404(self.get_queryset(), pk=pk)
+        instance.is_deleted = True
+        instance.save()
+        return Response({
+            "status": True,
+            "message": "Referral setting deleted (soft delete)"
+        })
+ 
+ 
+ 
