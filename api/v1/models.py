@@ -506,6 +506,7 @@ class Customer(models.Model):
     ]
     msme = models.ForeignKey(MSMEProfile, on_delete=models.CASCADE, related_name="customers", null=True, blank=True)
     referral_by = models.ForeignKey("Customer", on_delete=models.CASCADE, null=True, blank= True,related_name='referral_cutomer_user')
+    referral_setting = models.ForeignKey(ReferralSetting, related_name='customer_setting_made', on_delete=models.CASCADE, null=True, blank= True)
     referral_code = models.CharField(max_length=10,null=True, blank=True)
     first_name = models.CharField(max_length=100,null=True, blank=True)
     last_name = models.CharField(max_length=100,null=True, blank=True)
@@ -577,3 +578,25 @@ class RefereeMaster(models.Model):
         verbose_name_plural = "Referee Master"
  
  
+ # campaigns/models.py
+from django.db import models
+
+class WhatsAppCampaign(models.Model):
+    recipient_number = models.CharField(max_length=20)
+    message = models.TextField()
+    status = models.CharField(max_length=20, default='pending')
+    sent_at = models.DateTimeField(null=True, blank=True)
+    is_active = models.BooleanField(default=False)
+    is_deleted = models.BooleanField(default=False)
+    created_by = models.ForeignKey("Customer", on_delete=models.CASCADE, null=True, blank= True,related_name='created_referee_Customer')
+    updated_by = models.ForeignKey("Customer", on_delete=models.CASCADE, null=True, blank= True,related_name='updated_referee_Customer')
+    created_on = models.DateTimeField(auto_now_add=True,null=True,blank=True)
+    updated_on = models.DateTimeField(auto_now=True,null=True,blank=True)
+
+    def __str__(self):
+        return f"To: {self.recipient_number} | Status: {self.status}"
+    
+    class Meta:
+        db_table = "whatsApp_campaign"
+        verbose_name = "WhatsApp Campaign"
+        verbose_name_plural = "WhatsApp Campaign"

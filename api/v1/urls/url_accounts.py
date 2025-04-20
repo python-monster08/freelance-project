@@ -10,6 +10,7 @@ router.register("membership_plans", MembershipPlanViewSet, basename="new_members
 router.register("support_system", SupportSystemViewSet, basename="support_system")
 router.register("add_customer", CustomerCreateViewSet, basename="add_customer")
 router.register("referral_setting", ReferralSettingViewSet, basename="referral_setting")
+router.register("whatsapp_campaigns", WhatsAppCampaignViewSet, basename='whatsapp_campaigns')
 
 urlpatterns = [
     path('signup/', UserSignupView.as_view(), name='signup'),

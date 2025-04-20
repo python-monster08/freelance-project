@@ -1772,7 +1772,7 @@ class CustomerCreateViewSet(ModelViewSet):
 
             queryset = queryset.values(
                 'id' ,'first_name','last_name', 'email', 'whatsapp_number',
-                'gender', 'dob', 'city','is_active',
+                'gender', 'dob','anniversary_date', 'city','is_active',
                 'created_on', 'msme_id', 'msme__brand_name', 'created_by', 'created_by__first_name'
             ).order_by('-created_on')
 
@@ -1799,9 +1799,19 @@ class CustomerCreateViewSet(ModelViewSet):
                     dataframe_df.sort_values(by=[order_by], ascending=True, inplace=True)
 
                 if 'created_on' in dataframe_df.columns:
-                    dataframe_df['created_on'] = dataframe_df['created_on'].apply(lambda x: x.strftime('%d-%m-%Y & %I:%M %p') if pd.notna(x) else 'Invalid Date')
+                    dataframe_df['created_on'] = dataframe_df['created_on'].apply(lambda x: x.strftime('%Y-%m-%d & %I:%M %p') if pd.notna(x) else 'Invalid Date')
                 else:
                     dataframe_df['created_on'] = ""
+
+                if 'dob' in dataframe_df.columns:
+                    dataframe_df['dob'] = dataframe_df['dob'].apply(lambda x: x.strftime('%Y-%m-%d') if pd.notna(x) else 'Invalid Date')
+                else:
+                    dataframe_df['dob'] = ""
+
+                if 'anniversary_date' in dataframe_df.columns:
+                    dataframe_df['anniversary_date'] = dataframe_df['anniversary_date'].apply(lambda x: x.strftime('%Y-%m-%d') if pd.notna(x) else 'Invalid Date')
+                else:
+                    dataframe_df['anniversary_date'] = ""
 
                 dataframe_df = dataframe_df.fillna("")
                 json_list = dataframe_df.to_json(orient='records')
@@ -1819,7 +1829,7 @@ class CustomerCreateViewSet(ModelViewSet):
             return http_500_response(error=str(e))
 
     def retrieve(self, request, pk=None):
-        try:
+        # try:
             user_obj  = Customer.objects.filter(id=pk).last()
 
             outlet_data = GetCustomerSerializer(user_obj,context={'user':request.user,'request':request,'user_obj':user_obj}).data
@@ -1827,9 +1837,9 @@ class CustomerCreateViewSet(ModelViewSet):
                 return http_200_response(message=FOUND,data=outlet_data)
             else:
                 return http_200_response(message=NOT_FOUND)
-        except Exception as e:
-            logException(e)
-            return http_500_response(error=str(e))
+        # except Exception as e:
+        #     logException(e)
+        #     return http_500_response(error=str(e))
         
 
     def destroy(self, request, pk=None):
@@ -1987,3 +1997,45 @@ class ReferralSettingViewSet(ModelViewSet):
  
  
  
+ # campaigns/views.py
+from rest_framework import viewsets, status
+from rest_framework.response import Response
+from .serializers import WhatsAppCampaignSerializer
+import requests
+from django.utils import timezone
+
+# Replace with your real credentials
+ACCESS_TOKEN = 'YOUR_ACCESS_TOKEN'
+PHONE_NUMBER_ID = 'YOUR_PHONE_NUMBER_ID'
+
+class WhatsAppCampaignViewSet(viewsets.ModelViewSet):
+    queryset = WhatsAppCampaign.objects.all()
+    serializer_class = WhatsAppCampaignSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        campaign = serializer.save()
+
+        url = f"https://graph.facebook.com/v18.0/{PHONE_NUMBER_ID}/messages"
+        headers = {
+            "Authorization": f"Bearer {ACCESS_TOKEN}",
+            "Content-Type": "application/json"
+        }
+        data = {
+            "messaging_product": "whatsapp",
+            "to": campaign.recipient_number,
+            "type": "text",
+            "text": {"body": campaign.message}
+        }
+
+        response = requests.post(url, headers=headers, json=data)
+
+        if response.status_code == 200:
+            campaign.status = 'sent'
+            campaign.sent_at = timezone.now()
+        else:
+            campaign.status = 'failed'
+        
+        campaign.save()
+        return Response(self.get_serializer(campaign).data, status=status.HTTP_201_CREATED)

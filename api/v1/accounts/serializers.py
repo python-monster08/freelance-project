@@ -599,6 +599,8 @@ class CustomerRegisterSerializer(serializers.Serializer):
                 'is_active': True,
                 'msme_id': user_id,
                 'created_by_id': user_id,
+                'referral_setting_id':int(referral_setting) if referral_setting else None,
+
             }
 
             if not referral_code_input:
@@ -701,12 +703,128 @@ class UpdateCustomerSerializer(serializers.Serializer):
             customer_obj.save()
             
             return attrs
+'''
+{
+      "referral_details": {
+        "selected_offer": 1,
+        "selected_offer_text": "10% Discount",
+        "reward_expire_type": 1,
+        "reminder_type": 1,
+        "reminder_type_text": "2 days before",
+        "contact_type": 1,
+        "contact_type_text": "9876543210",
+        "terms": [
+          "Refer and earn",
+          "Limited time only"
+        ]
+      },
+      "referee_details": {
+        "referrer_discount": "50.00",
+        "min_purchase": "100",
+        "post_purchase": "Send code",
+        "time_unit": 1,
+        "time_value": "2",
+        "terms": [
+          "Valid after first purchase"
+        ]
+      },
+      "channels": [
+        1,
+        2
+      ],
+      "id": 1,
+      "msme_id": 1,
+      "msme_name": "MSME-1",
+      "created_by": 1,
+      "created_on": "2025-04-16T18:13:54.321765+05:30"
+    }
+  ]
+}
+'''
 
+class CustomerReferralSettingSerializer(serializers.ModelSerializer):
+    referral_terms = serializers.ListField(child=serializers.CharField(), required=False)
+    referee_terms = serializers.ListField(child=serializers.CharField(), required=False)
+    channels = serializers.PrimaryKeyRelatedField(queryset=Channel.objects.all(), many=True)
+    
+    is_active = serializers.BooleanField(required=False)
+ 
+    # These are read-only computed fields
+    msme_id = serializers.SerializerMethodField()
+    msme_name = serializers.SerializerMethodField()
+ 
+    class Meta:
+        model = ReferralSetting
+        fields = [
+            "id", "msme_id", "msme_name", "created_by",
+ 
+            # Referral Details
+            "selected_offer", "selected_offer_text",
+            "reward_expire_type", "reminder_type", "reminder_value",
+            "contact_type", "contact_value", "referral_terms",
+ 
+            # Referee Details
+            "referrer_discount", "min_purchase", "post_purchase",
+            "time_unit", "time_value", "referee_terms",
+ 
+            # Channels
+            "channels",
+ 
+            "is_active",
+            "created_on"
+        ]
+        read_only_fields = ["id", "created_on", "msme_id", "msme_name", "created_by"]
+ 
+    def get_msme_id(self, obj):
+        return obj.msme.id if obj.msme else None
+ 
+    def get_msme_name(self, obj):
+        return obj.msme.brand_name if obj.msme else "No MSME"
+ 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+ 
+        response = {
+            "referral_details": {
+                "selected_offer": data.pop("selected_offer"),
+                "selected_offer_text": data.pop("selected_offer_text"),
+                "reward_expire_type": data.pop("reward_expire_type"),
+                "reminder_type": data.pop("reminder_type"),
+                "reminder_type_text": data.pop("reminder_value"),
+                "contact_type": data.pop("contact_type"),
+                "contact_type_text": data.pop("contact_value"),
+                "terms": data.pop("referral_terms", []),
+            },
+            "referee_details": {
+                "referrer_discount": data.pop("referrer_discount"),
+                "min_purchase": data.pop("min_purchase"),
+                "post_purchase": data.pop("post_purchase"),
+                "time_unit": data.pop("time_unit"),
+                "time_value": data.pop("time_value"),
+                "terms": data.pop("referee_terms", []),
+            },
+            "channels": data.pop("channels"),
+            "id": data.pop("id"),
+            "msme_id": data.pop("msme_id"),
+            "msme_name": data.pop("msme_name"),
+            "created_by": data.pop("created_by"),
+            "created_on": data.pop("created_on"),
+        }
+ 
+        return response
 class GetCustomerSerializer(serializers.ModelSerializer):
+    # referral_setting_data = serializers.SerializerMethodField()
+    # referral_setting_data = CustomerReferralSettingSerializer(many=True,)
+
     class Meta:
         model = Customer
-        fields = ['id', 'first_name','last_name', 'email', 'whatsapp_number', 'gender', 'dob','city', 'created_by','msme',]
-    
+        fields = ['id', 'first_name','last_name', 'email', 'whatsapp_number', 'gender', 'dob','anniversary_date','city', 'created_by','msme','referral_setting',]
+    # def get_referral_setting_data(self,obj):
+    #     rfset_obj=ReferralSetting.objects.filter(id=obj.referral_setting).last()
+    #     print(obj.referral_setting,'111111111111111111111111000000000000000000011111111',rfset_obj)
+    #     data=CustomerReferralSettingSerializer(rfset_obj,many=True,)
+    #     print(data,'33333333333333333333333333333333333')
+    #     return data
 
     def to_representation(self, instance):
         request = self.context.get('request')
@@ -724,6 +842,26 @@ class GetCustomerSerializer(serializers.ModelSerializer):
         data['msme'] = data.pop('msme') if instance.msme else None
         data['msme_name'] = instance.msme.brand_name if instance.msme else ""
 
+        #referral data
+        data['referral_setting'] = data.pop('referral_setting') if instance.referral_setting.id else None
+        data['referral_selected_offer'] = instance.referral_setting.selected_offer if instance.referral_setting else ""
+        data['referral_selected_offer_text'] = instance.referral_setting.selected_offer_text if instance.referral_setting else ""
+        data['referral_reward_expire_type'] = instance.referral_setting.reward_expire_type if instance.referral_setting else ""
+        data['referral_reminder_type'] = instance.referral_setting.reminder_type if instance.referral_setting else ""
+        data['referral_reminder_type_text'] = instance.referral_setting.reminder_value if instance.referral_setting else ""
+        data['referral_contact_type'] = instance.referral_setting.contact_type if instance.referral_setting else ""
+        data['referral_contact_type_text'] = instance.referral_setting.contact_value if instance.referral_setting else ""
+        data['referral_terms'] = instance.referral_setting.referral_terms if instance.referral_setting else ""
+
+        ##referee data
+        data['referrer_discount'] = instance.referral_setting.referrer_discount if instance.referral_setting else ""
+        data['referee_min_purchase'] = instance.referral_setting.min_purchase if instance.referral_setting else ""
+        data['referee_post_purchase'] = instance.referral_setting.post_purchase if instance.referral_setting else ""
+        data['referee_time_unit'] = instance.referral_setting.time_unit if instance.referral_setting else ""
+        data['referee_time_value'] = instance.referral_setting.time_value if instance.referral_setting else ""
+        data['referral_contact_type'] = instance.referral_setting.contact_type if instance.referral_setting else ""
+        data['referral_contact_type_text'] = instance.referral_setting.contact_value if instance.referral_setting else ""
+        data['referee_terms'] = instance.referral_setting.referee_terms if instance.referral_setting else ""
         return data
 
 
@@ -826,3 +964,9 @@ class SubscriptionSerializer(serializers.ModelSerializer):
             'id', 'membership_plan', 'start_date', 'end_date',
             'status', 'auto_renew', 'is_active'
         ]
+
+
+class WhatsAppCampaignSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WhatsAppCampaign
+        fields = '__all__'
