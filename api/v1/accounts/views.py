@@ -87,6 +87,62 @@ class UserSignupView(APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+# class UserLoginView(generics.GenericAPIView):
+#     serializer_class = UserLoginSerializer
+#     permission_classes = [AllowAny]
+
+#     def post(self, request, *args, **kwargs):
+#         try:
+#             serializer = self.get_serializer(data=request.data)
+#             serializer.is_valid(raise_exception=True)
+
+#             username_or_email = serializer.validated_data['username_or_email']
+#             password = serializer.validated_data['password']
+
+#             user = authenticate(request, username=username_or_email, password=password)
+
+#             if user is None:
+#                 return Response({
+#                     "status": False,
+#                     "message": "Invalid credentials"
+#                 }, status=status.HTTP_401_UNAUTHORIZED)
+
+#             if not user.is_active:
+#                 return Response({
+#                     "status": False,
+#                     "message": "Account is not activated yet."
+#                 }, status=status.HTTP_403_FORBIDDEN)
+
+#             # Generate tokens
+#             refresh = RefreshToken.for_user(user)
+#             access_token = refresh.access_token
+
+#             # Get token expiry times
+#             access_token_lifetime = settings.SIMPLE_JWT['ACCESS_TOKEN_LIFETIME']
+#             refresh_token_lifetime = settings.SIMPLE_JWT['REFRESH_TOKEN_LIFETIME']
+#             is_profile_update = user.is_profile_update
+#             access_token_expiry = datetime.now() + access_token_lifetime
+#             refresh_token_expiry = datetime.now() + refresh_token_lifetime
+
+#             return Response({
+#                 "status": True,
+#                 "message": "Login successful",
+#                 "is_profile_updated": is_profile_update,
+#                 "role_id": user.role.id,
+#                 "role_name": user.role.role,
+#                 "access": str(access_token),
+#                 "access_expires_at": access_token_expiry.strftime("%Y-%m-%d %H:%M:%S UTC"),
+#                 "refresh": str(refresh),
+#                 "refresh_expires_at": refresh_token_expiry.strftime("%Y-%m-%d %H:%M:%S UTC")
+#             })
+
+#         except Exception as e:
+#             return Response({
+#                 "status": False,
+#                 "message": str(e)
+#             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 class UserLoginView(generics.GenericAPIView):
     serializer_class = UserLoginSerializer
     permission_classes = [AllowAny]
@@ -128,8 +184,8 @@ class UserLoginView(generics.GenericAPIView):
                 "status": True,
                 "message": "Login successful",
                 "is_profile_updated": is_profile_update,
-                "role_id": user.role.id,
-                "role_name": user.role.role,
+                "role_id": user.role.id if user.role else None,
+                "role_name": user.role.role if user.role else None,
                 "access": str(access_token),
                 "access_expires_at": access_token_expiry.strftime("%Y-%m-%d %H:%M:%S UTC"),
                 "refresh": str(refresh),
@@ -141,6 +197,7 @@ class UserLoginView(generics.GenericAPIView):
                 "status": False,
                 "message": str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 
 class SocialLoginView(APIView):

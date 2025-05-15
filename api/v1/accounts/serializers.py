@@ -46,10 +46,11 @@ User = get_user_model()
 
 class UserSignupSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
+    role_id = serializers.IntegerField(required=False)  # allow passing role_id optionally
 
     class Meta:
         model = UserMaster
-        fields = ['username', 'email', 'phone_number', 'password']
+        fields = ['username', 'email', 'phone_number', 'password', 'role_id']
 
     def validate(self, attrs):
         if UserMaster.objects.filter(username=attrs['username']).exists() or \
@@ -60,14 +61,23 @@ class UserSignupSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         password = validated_data.pop('password')
+        role_id = validated_data.pop('role_id', None)
+
+        if role_id:
+            role = UserRole.objects.filter(id=role_id).first()
+        else:
+            role = UserRole.objects.get(id=2)  # default role if none provided
+
         user = UserMaster.objects.create_user(
             email=validated_data['email'],
             username=validated_data['username'],
             phone_number=validated_data['phone_number'],
             password=password,
-            is_active=True
+            is_active=True,
+            role=role
         )
         return user
+
 
 
 class UserLoginSerializer(serializers.Serializer):

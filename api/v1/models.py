@@ -21,6 +21,40 @@ class UserRole(models.Model):
 
 
 
+# class UserManager(BaseUserManager):
+#     """Custom manager for UserMaster model"""
+
+#     def create_user(self, email, username, phone_number, password=None, role_id=None, **extra_fields):
+#         """Create a normal user"""
+#         if not email:
+#             raise ValueError("Email is required")
+#         if not username:
+#             raise ValueError("Username is required")
+#         if not phone_number:
+#             raise ValueError("Phone number is required")
+
+#         email = self.normalize_email(email)
+
+#         # Fetch or set role
+#         role = UserRole.objects.filter(id=role_id).first() if role_id else None
+
+#         user = self.model(email=email, username=username, phone_number=phone_number, role=role, **extra_fields)
+#         user.set_password(password)
+#         user.save(using=self._db)
+#         return user
+
+#     def create_superuser(self, email, username, phone_number, password=None, **extra_fields):
+#         """Create a superuser with role_id=1"""
+#         extra_fields.setdefault("is_active", True)
+#         extra_fields.setdefault("is_staff", True)
+#         extra_fields.setdefault("is_superuser", True)
+
+#         # Ensure role_id=1 exists or create it
+#         super_admin_role, _ = UserRole.objects.get_or_create(id=1, defaults={"role": "Super Admin"})
+
+#         return self.create_user(email, username, phone_number, password, role_id=super_admin_role.id, **extra_fields)
+
+
 class UserManager(BaseUserManager):
     """Custom manager for UserMaster model"""
 
@@ -38,6 +72,9 @@ class UserManager(BaseUserManager):
         # Fetch or set role
         role = UserRole.objects.filter(id=role_id).first() if role_id else None
 
+        # Remove 'role' from extra_fields if it's accidentally passed
+        extra_fields.pop('role', None)
+
         user = self.model(email=email, username=username, phone_number=phone_number, role=role, **extra_fields)
         user.set_password(password)
         user.save(using=self._db)
@@ -52,7 +89,14 @@ class UserManager(BaseUserManager):
         # Ensure role_id=1 exists or create it
         super_admin_role, _ = UserRole.objects.get_or_create(id=1, defaults={"role": "Super Admin"})
 
-        return self.create_user(email, username, phone_number, password, role_id=super_admin_role.id, **extra_fields)
+        return self.create_user(
+            email=email,
+            username=username,
+            phone_number=phone_number,
+            password=password,
+            role_id=super_admin_role.id,
+            **extra_fields
+        )
 
 
 class UserMaster(AbstractUser):
