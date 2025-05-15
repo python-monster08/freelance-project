@@ -21,29 +21,53 @@ from django.core.mail import EmailMultiAlternatives
 
 User = get_user_model()
 
+# class UserSignupSerializer(serializers.ModelSerializer):
+#     password = serializers.CharField(write_only=True)
+
+#     class Meta:
+#         model = User
+#         fields = ['username', 'email', 'phone_number', 'password']
+
+#     def validate(self, attrs):
+#         if User.objects.filter(username=attrs['username']).exists() or \
+#            User.objects.filter(email=attrs['email']).exists() or \
+#            User.objects.filter(phone_number=attrs['phone_number']).exists():
+#             raise serializers.ValidationError("User already exists.")  # Single message
+#         return attrs
+
+#     def create(self, validated_data):
+#         user = User(
+#             **validated_data,
+#             is_active=True
+#         )
+#         user.set_password(validated_data['password'])
+#         user.save()
+#         return user
+
 class UserSignupSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
 
     class Meta:
-        model = User
+        model = UserMaster
         fields = ['username', 'email', 'phone_number', 'password']
 
     def validate(self, attrs):
-        if User.objects.filter(username=attrs['username']).exists() or \
-           User.objects.filter(email=attrs['email']).exists() or \
-           User.objects.filter(phone_number=attrs['phone_number']).exists():
-            raise serializers.ValidationError("User already exists.")  # Single message
+        if UserMaster.objects.filter(username=attrs['username']).exists() or \
+           UserMaster.objects.filter(email=attrs['email']).exists() or \
+           UserMaster.objects.filter(phone_number=attrs['phone_number']).exists():
+            raise serializers.ValidationError("User already exists.")
         return attrs
 
     def create(self, validated_data):
-        user = User(
-            **validated_data,
+        password = validated_data.pop('password')
+        user = UserMaster.objects.create_user(
+            email=validated_data['email'],
+            username=validated_data['username'],
+            phone_number=validated_data['phone_number'],
+            password=password,
             is_active=True
         )
-        user.set_password(validated_data['password'])
-        user.save()
         return user
-
 
 
 class UserLoginSerializer(serializers.Serializer):
